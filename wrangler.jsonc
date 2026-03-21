@@ -1,0 +1,128 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "anvil",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-03-16",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"limits": {
+		"cpu_ms": 300000,
+	},
+	"observability": {
+		"enabled": true,
+	},
+	"assets": {
+		"directory": "dist/client",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*"
+		],
+	},
+	"ratelimits": [
+		{
+			"name": "PUBLIC_LOGIN_RATE_LIMITER",
+			"namespace_id": "1101",
+			"simple": {
+				"limit": 10,
+				"period": 60,
+			},
+		},
+		{
+			"name": "PUBLIC_INVITE_ACCEPT_RATE_LIMITER",
+			"namespace_id": "1102",
+			"simple": {
+				"limit": 5,
+				"period": 60,
+			},
+		},
+	],
+	"kv_namespaces": [
+		{
+			"binding": "SESSIONS",
+			"id": "b502827837c543fb9ab265414ed10d66",
+		},
+		{
+			"binding": "LOG_TICKETS",
+			"id": "57f98e0c02cf4618a287611826205c1b",
+		},
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "anvil-db",
+			"database_id": "666c2034-8700-49e7-bed4-bba5d62923e6",
+			"migrations_dir": "drizzle/d1",
+		},
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "PROJECT_DO",
+				"class_name": "ProjectDO",
+			},
+			{
+				"name": "RUN_DO",
+				"class_name": "RunDO",
+			},
+			{
+				"name": "Sandbox",
+				"class_name": "Sandbox",
+			},
+		],
+	},
+	"containers": [
+		{
+			"class_name": "Sandbox",
+			"image": "./docker/runner.Dockerfile",
+			"instance_type": "basic",
+			"max_instances": 10,
+		},
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "RUN_QUEUE",
+				"queue": "anvil-runs",
+			},
+		],
+		"consumers": [
+			{
+				"queue": "anvil-runs",
+				"max_batch_size": 1,
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"ProjectDO",
+				"RunDO"
+			],
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"Sandbox"
+			],
+		},
+	],
+	"vars": {
+		"AUTH_SESSION_TTL_SECONDS": "21600",
+		"AUTH_SESSION_REFRESH_THRESHOLD_SECONDS": "3600",
+		"INVITE_TTL_SECONDS": "604800",
+		"INVITE_TOKEN_BYTES": "32",
+		"SESSION_VERSION": "1",
+		"PASSWORD_PBKDF2_DIGEST": "SHA-256",
+		"PASSWORD_PBKDF2_ITERATIONS": "100000", // undocumented platform limit
+		"SANDBOX_TRANSPORT": "websocket",
+	},
+	"routes": [
+		{
+			"pattern": "anvil.devbin.tools",
+			"custom_domain": true,
+		},
+	],
+}

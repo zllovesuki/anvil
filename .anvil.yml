@@ -1,0 +1,17 @@
+version: 1
+checkout:
+  depth: 1
+run:
+  workingDirectory: .
+  timeoutSeconds: 720
+  steps:
+    - name: install
+      run: npm ci
+    - name: typecheck
+      run: npm run typecheck
+    - name: test-types
+      run: npx tsc -p tests/tsconfig.json --noEmit
+    - name: test
+      run: npm test
+    - name: build
+      run: npm run build

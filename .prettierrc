@@ -1,0 +1,20 @@
+{
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "printWidth": 120,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "jsxSingleQuote": false,
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "wrangler.jsonc",
+      "options": {
+        "useTabs": true
+      }
+    }
+  ]
+}
