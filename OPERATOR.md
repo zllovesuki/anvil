@@ -24,7 +24,56 @@ cp .dev.vars.example .dev.vars
 | `APP_ENCRYPTION_KEY_CURRENT_VERSION` | Active key version for credential encryption |
 | `APP_ENCRYPTION_KEYS_JSON`           | JSON map of version → base64 AES-GCM key     |
 
-For production, generate a fresh encryption key. The example key is for local development only.
+For production, generate a fresh encryption key. The example key is for local development only and must never be reused in a remote Cloudflare environment.
+
+Store production encryption values as Worker secrets, not plaintext `vars` in `wrangler.jsonc`.
+
+### Production encryption setup
+
+Generate a fresh 32-byte base64 key:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+For a brand-new deployment, start with key version `1`:
+
+```text
+APP_ENCRYPTION_KEY_CURRENT_VERSION=1
+APP_ENCRYPTION_KEYS_JSON={"1":"<generated-base64-key>"}
+```
+
+Set both values with Wrangler:
+
+```bash
+npx wrangler secret put APP_ENCRYPTION_KEY_CURRENT_VERSION
+npx wrangler secret put APP_ENCRYPTION_KEYS_JSON
+```
+
+When prompted, enter these values:
+
+```text
+1
+{"1":"<generated-base64-key>"}
+```
+
+If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`. Worker secrets are environment-specific and do not inherit between environments.
+
+### Key rotation
+
+anvil supports versioned encryption keys. Rotation is additive:
+
+1. Generate a new 32-byte base64 key.
+2. Add it to `APP_ENCRYPTION_KEYS_JSON` under the next integer version, while keeping the existing versions. Example: `{"1":"<old-key>","2":"<new-key>"}`.
+3. Set `APP_ENCRYPTION_KEY_CURRENT_VERSION` to the new version.
+4. Update both Worker secrets with Wrangler, then deploy again.
+5. Re-save each project repository token. Repository tokens are only re-encrypted when the token is saved again.
+6. Rotate or recreate each webhook secret and update the upstream provider with the new plaintext secret. Webhook secrets only move to the new key version when they are rotated or recreated.
+7. Remove older key versions from `APP_ENCRYPTION_KEYS_JSON` only after you are certain every stored repository token and webhook secret that used them has been rewritten.
+
+Keep previous key versions in your secure secrets vault while any stored data may still depend on them. Rotation still requires the old keys to decrypt existing repository tokens and webhook secrets until every stored credential has been rewritten under the newer version.
+
+v1 does not include a bulk re-encryption job or an audit view that shows which stored credentials still depend on an older key version.
 
 ## Database setup
 
@@ -98,6 +147,7 @@ Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrat
 | `npm run test:e2e`               | Playwright browser tests                                                      |
 | `npm run test:integration:queue` | Queue/runner integration test (starts local app, runs a full pipeline)        |
 | `npm run typecheck`              | Full TypeScript type check                                                    |
+| `npm run deploy`                 | Apply remote D1 migrations, build, then deploy                                |
 | `npm run db:migrate:d1:local`    | Apply D1 migrations locally                                                   |
 | `npm run db:migrate:d1`          | Apply D1 migrations to remote `anvil-db`                                      |
 | `npm run db:generate`            | Regenerate Drizzle migrations from schema                                     |
@@ -110,12 +160,14 @@ Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrat
 # Authenticate
 npx wrangler login
 
-# Apply remote D1 migrations
-npm run db:migrate:d1
+# Apply remote D1 migrations, build, and deploy
+npm run deploy
+```
 
-# Build and deploy
-npm run build
-npx wrangler deploy
+If the first `npm run deploy` fails because queue `anvil-runs` does not exist yet, create it manually and rerun the deploy:
+
+```bash
+npx wrangler queues create anvil-runs
 ```
 
 See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Durable Objects, Queues, and Containers.

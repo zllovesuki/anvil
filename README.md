@@ -136,15 +136,16 @@ reference/          📖  Specs and design docs
 
 ## 📜 Common scripts
 
-| Command               | What it does                              |
-| --------------------- | ----------------------------------------- |
-| `npm run dev`         | Start local dev server                    |
-| `npm run build`       | Production build                          |
-| `npm test`            | Fast Vitest suite                         |
-| `npm run test:e2e`    | Playwright browser tests                  |
-| `npm run typecheck`   | Full TypeScript type check                |
-| `npm run db:generate` | Regenerate Drizzle migrations from schema |
-| `npm run format`      | Prettier formatting                       |
+| Command               | What it does                                |
+| --------------------- | ------------------------------------------- |
+| `npm run dev`         | Start local dev server                      |
+| `npm run build`       | Production build                            |
+| `npm test`            | Fast Vitest suite                           |
+| `npm run test:e2e`    | Playwright browser tests                    |
+| `npm run typecheck`   | Full TypeScript type check                  |
+| `npm run db:generate` | Regenerate Drizzle migrations from schema   |
+| `npm run deploy`      | Remote D1 migrate, production build, deploy |
+| `npm run format`      | Prettier formatting                         |
 
 See [OPERATOR.md](OPERATOR.md) for the full script reference, deployment guide, database operations, testing strategy, and Cloudflare binding details.
 
@@ -154,11 +155,10 @@ See [OPERATOR.md](OPERATOR.md) for the full script reference, deployment guide, 
 
 ```bash
 npx wrangler login
-npm run db:migrate:d1         # remote D1 migrations
-npm run build && npx wrangler deploy
+npm run deploy
 ```
 
-That's the short version. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
+`npm run deploy` applies remote D1 migrations first, then builds and deploys the Worker. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
 
 ---
 
