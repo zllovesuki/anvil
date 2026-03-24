@@ -19,7 +19,7 @@ interface SettingsFormState {
 export const ProjectSettingsPage = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { mode } = useAuth();
+  const { canSelectMode, mode } = useAuth();
   const { pushToast } = useToast();
 
   const [project, setProject] = useState<ProjectSummary | null>(null);
@@ -223,12 +223,14 @@ export const ProjectSettingsPage = () => {
             </p>
           </Card>
 
-          <Card className="p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Transport</p>
-            <div className="mt-2">
-              <Badge variant={mode === "live" ? "accent" : "default"}>{mode}</Badge>
-            </div>
-          </Card>
+          {canSelectMode ? (
+            <Card className="p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Transport</p>
+              <div className="mt-2">
+                <Badge variant={mode === "live" ? "accent" : "default"}>{mode}</Badge>
+              </div>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

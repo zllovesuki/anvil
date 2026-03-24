@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import type { LoginRequest, UserSummary } from "@/contracts";
+import { ApiError } from "@/client/lib/api-contract";
 import {
   type AuthMode,
   clearStoredBookmark,
@@ -15,11 +16,17 @@ import {
 import { useToast } from "@/client/toast";
 import { SESSION_EXPIRED_EVENT } from "@/client/lib/live-api-request";
 
+interface StartupErrorState {
+  code: string;
+  message: string;
+}
+
 interface AuthContextValue {
   mode: AuthMode;
   canSelectMode: boolean;
   user: UserSummary | null;
   inviteTtlSeconds: number | null;
+  startupError: StartupErrorState | null;
   isAuthenticated: boolean;
   isInitializing: boolean;
   signIn(payload: LoginRequest): Promise<void>;
@@ -42,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const userRef = useRef(user);
   userRef.current = user;
   const [inviteTtlSeconds, setInviteTtlSeconds] = useState<number | null>(null);
+  const [startupError, setStartupError] = useState<StartupErrorState | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const canSelectMode = isMockAuthModeSelectable();
 
@@ -55,12 +63,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearClientAuthState();
     setUser(null);
     setInviteTtlSeconds(null);
+    setStartupError(null);
   }, [mode]);
 
   useEffect(() => {
     let canceled = false;
 
     const hydrateSession = async () => {
+      setStartupError(null);
+
+      if (mode === "live") {
+        try {
+          await getApiClient(mode).checkAppConfig();
+        } catch (error) {
+          if (error instanceof ApiError && error.code === "encryption_not_configured") {
+            if (!canceled) {
+              setUser(null);
+              setInviteTtlSeconds(null);
+              setStartupError({
+                code: error.code,
+                message: error.message,
+              });
+              setIsInitializing(false);
+            }
+            return;
+          }
+        }
+      }
+
       const sessionId = getStoredSessionId();
       if (!sessionId) {
         if (!canceled) {
@@ -157,6 +187,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearClientAuthState();
     setUser(null);
     setInviteTtlSeconds(null);
+    setStartupError(null);
     setModeState(resolvedMode);
     pushToast({
       tone: "info",
@@ -172,6 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         canSelectMode,
         user,
         inviteTtlSeconds,
+        startupError,
         isAuthenticated: user !== null,
         isInitializing,
         signIn,

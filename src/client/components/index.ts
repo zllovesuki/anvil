@@ -1,3 +1,4 @@
+export * from "@/client/components/app-config-error-page";
 export * from "@/client/components/app-shell";
 export * from "@/client/components/error-boundary";
 export * from "@/client/components/footer";

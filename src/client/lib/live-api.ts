@@ -25,6 +25,13 @@ import type { ApiClient } from "@/client/lib/api-contract";
 import { request } from "@/client/lib/live-api-request";
 
 export const createLiveApiClient = (): ApiClient => ({
+  async checkAppConfig() {
+    await request({
+      path: "/api/public/app-config",
+      method: "GET",
+    });
+  },
+
   login(payload) {
     const body = LoginRequest.assertDecode(payload);
 

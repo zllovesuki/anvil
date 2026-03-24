@@ -7,6 +7,13 @@ describe("worker routes", () => {
   registerWorkerRuntimeHooks();
 
   describe("auth and request validation", () => {
+    it("reports app encryption configuration health on the public config route", async () => {
+      const result = await fetchJson("/api/public/app-config");
+
+      expect(result.status).toBe(204);
+      expect(result.text).toBe("");
+    });
+
     it("rejects private routes without a valid session", async () => {
       const result = await fetchJson("/api/private/me");
 

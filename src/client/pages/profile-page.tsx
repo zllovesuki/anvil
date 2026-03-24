@@ -24,7 +24,7 @@ export const ProfilePage = () => {
     <div className="animate-slide-up space-y-6">
       <PageHeader label="Account" title="Profile & Settings" />
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className={["grid gap-5", canSelectMode ? "lg:grid-cols-2" : null].filter(Boolean).join(" ")}>
         {/* User info card */}
         <Card>
           <div className="flex items-start gap-4">
@@ -66,37 +66,36 @@ export const ProfilePage = () => {
           </div>
         </Card>
 
-        {/* Developer settings card */}
-        <Card>
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-accent-500/10 p-2 text-accent-300">
-              <KeyRound className="h-5 w-5" />
+        {canSelectMode ? (
+          <Card>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-accent-500/10 p-2 text-accent-300">
+                <KeyRound className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-100">Developer Settings</h3>
+                <p className="mt-1 text-sm text-zinc-500">API transport and session configuration.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-zinc-100">Developer Settings</h3>
-              <p className="mt-1 text-sm text-zinc-500">API transport and session configuration.</p>
-            </div>
-          </div>
 
-          <div className="mt-6 space-y-4">
-            <div>
-              <p className="mb-2 text-sm font-medium text-zinc-300">API Transport</p>
-              {canSelectMode ? <ModeToggle currentMode={mode} onChange={setMode} /> : null}
-              <p className="mt-3 text-xs leading-5 text-zinc-500">
-                {!canSelectMode
-                  ? "This host uses the live Worker API only."
-                  : mode === "mock"
+            <div className="mt-6 space-y-4">
+              <div>
+                <p className="mb-2 text-sm font-medium text-zinc-300">API Transport</p>
+                <ModeToggle currentMode={mode} onChange={setMode} />
+                <p className="mt-3 text-xs leading-5 text-zinc-500">
+                  {mode === "mock"
                     ? "Mock mode uses browser localStorage for persistence. No backend required."
                     : "Live mode calls Worker routes directly with bearer session ID and D1 bookmark headers."}
-              </p>
-            </div>
+                </p>
+              </div>
 
-            <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/40 p-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Active transport</p>
-              <p className="mt-1 text-sm font-medium text-zinc-200">{mode}</p>
+              <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/40 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Active transport</p>
+                <p className="mt-1 text-sm font-medium text-zinc-200">{mode}</p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : null}
       </div>
     </div>
   );

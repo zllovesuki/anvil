@@ -10,7 +10,7 @@ const MOCK_MODE_PASSWORD = "anvil-demo";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isInitializing, mode, signIn } = useAuth();
+  const { canSelectMode, isAuthenticated, isInitializing, mode, signIn } = useAuth();
   const [email, setEmail] = useState(() => (mode === "mock" ? MOCK_MODE_EMAIL : ""));
   const [password, setPassword] = useState(() => (mode === "mock" ? MOCK_MODE_PASSWORD : ""));
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +36,11 @@ export const LoginPage = () => {
       <PageHeader
         title="Sign in"
         description={
-          mode === "mock"
-            ? "Mock mode — any non-empty credentials will seed a local workspace."
-            : "Live mode — use an invited account provisioned in D1."
+          !canSelectMode
+            ? "Use an invited account provisioned in D1."
+            : mode === "mock"
+              ? "Mock mode — any non-empty credentials will seed a local workspace."
+              : "Live mode — use an invited account provisioned in D1."
         }
       />
 

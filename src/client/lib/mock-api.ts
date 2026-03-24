@@ -46,6 +46,8 @@ import {
 } from "./mock/index";
 const MOCK_INVITE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const createMockApiClient = (): ApiClient => ({
+  async checkAppConfig() {},
+
   async login(payload) {
     const body = LoginRequest.assertDecode(payload);
     const state = loadState();

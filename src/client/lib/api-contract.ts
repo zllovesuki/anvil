@@ -19,6 +19,7 @@ import type {
 } from "@/contracts";
 
 export interface ApiClient {
+  checkAppConfig(): Promise<void>;
   login(payload: unknown): Promise<LoginResponse>;
   logout(): Promise<void>;
   getMe(): Promise<GetMeResponse>;

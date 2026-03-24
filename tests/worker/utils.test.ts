@@ -2,18 +2,77 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import { buildGitCheckoutAuth, redactSecrets } from "@/worker/sandbox/git";
-import { decryptSecret, encryptSecret } from "@/worker/security/secrets";
+import { decryptSecret, encryptSecret, validateAppEncryptionConfig } from "@/worker/security/secrets";
 
 import { registerWorkerRuntimeHooks } from "../helpers/worker-hooks";
 
 describe("worker utilities", () => {
   registerWorkerRuntimeHooks();
 
+  const buildEncryptionEnv = (
+    overrides: Partial<Pick<Env, "APP_ENCRYPTION_KEY_CURRENT_VERSION" | "APP_ENCRYPTION_KEYS_JSON">>,
+  ) =>
+    ({
+      APP_ENCRYPTION_KEY_CURRENT_VERSION:
+        overrides.APP_ENCRYPTION_KEY_CURRENT_VERSION ?? env.APP_ENCRYPTION_KEY_CURRENT_VERSION,
+      APP_ENCRYPTION_KEYS_JSON: overrides.APP_ENCRYPTION_KEYS_JSON ?? env.APP_ENCRYPTION_KEYS_JSON,
+    }) as unknown as Env;
+
   it("round-trips encrypted secrets with the test app key", async () => {
     const encrypted = await encryptSecret(env, "super-secret-token");
     const decrypted = await decryptSecret(env, encrypted);
 
     expect(decrypted).toBe("super-secret-token");
+  });
+
+  it("accepts a valid app encryption configuration", async () => {
+    await expect(validateAppEncryptionConfig(env)).resolves.toBeUndefined();
+  });
+
+  it("rejects a missing current key version", async () => {
+    const invalidEnv = buildEncryptionEnv({
+      APP_ENCRYPTION_KEYS_JSON: JSON.stringify({
+        2: Buffer.alloc(32, 3).toString("base64"),
+      }),
+    });
+
+    await expect(validateAppEncryptionConfig(invalidEnv)).rejects.toMatchObject({
+      code: "encryption_not_configured",
+    });
+  });
+
+  it("rejects invalid encryption key JSON", async () => {
+    const invalidEnv = buildEncryptionEnv({
+      APP_ENCRYPTION_KEYS_JSON: "{not-json",
+    });
+
+    await expect(validateAppEncryptionConfig(invalidEnv)).rejects.toMatchObject({
+      code: "encryption_not_configured",
+    });
+  });
+
+  it("rejects invalid encryption key material", async () => {
+    const invalidEnv = buildEncryptionEnv({
+      APP_ENCRYPTION_KEYS_JSON: JSON.stringify({
+        1: "not-base64",
+      }),
+    });
+
+    await expect(validateAppEncryptionConfig(invalidEnv)).rejects.toMatchObject({
+      code: "encryption_not_configured",
+    });
+  });
+
+  it("rejects encryption keys with the wrong length", async () => {
+    const invalidEnv = buildEncryptionEnv({
+      APP_ENCRYPTION_KEYS_JSON: JSON.stringify({
+        1: Buffer.alloc(16, 9).toString("base64"),
+      }),
+    });
+
+    await expect(validateAppEncryptionConfig(invalidEnv)).rejects.toMatchObject({
+      code: "encryption_not_configured",
+    });
   });
 
   it("builds provider-specific git auth headers and redacts secrets", () => {

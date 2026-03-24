@@ -1,5 +1,5 @@
 import { ApiError } from "@/client/lib/api-contract";
-import { getStoredBookmark, getStoredSessionId, setStoredBookmark } from "@/client/lib/storage";
+import { canUseMockAuthMode, getStoredBookmark, getStoredSessionId, setStoredBookmark } from "@/client/lib/storage";
 
 export const D1_BOOKMARK_HEADER = "x-anvil-d1-bookmark";
 export const SESSION_EXPIRED_EVENT = "anvil:session-expired";
@@ -75,10 +75,14 @@ export const request = async <T>({
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
+    const canSuggestMockMode = typeof window !== "undefined" && canUseMockAuthMode(window.location.hostname ?? null);
+
     throw new ApiError(
       503,
       "network_error",
-      "Request failed. If the backend is not ready, switch to mock mode.",
+      canSuggestMockMode
+        ? "Request failed. If the backend is not ready, switch to mock mode."
+        : "Request failed. The backend may not be ready yet.",
       error,
     );
   }

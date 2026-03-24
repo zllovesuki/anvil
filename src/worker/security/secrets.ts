@@ -19,6 +19,9 @@ export interface EncryptedSecret {
 
 const importedKeys = new Map<string, Promise<CryptoKey>>();
 
+const encryptionNotConfigured = (message = "Repository token encryption is not configured."): HttpError =>
+  new HttpError(500, "encryption_not_configured", message);
+
 const decodeBase64 = (value: string): Uint8Array => {
   let normalized = value.trim().replace(/-/gu, "+").replace(/_/gu, "/");
 
@@ -41,18 +44,18 @@ const readEncryptionConfig = (env: Env): EncryptionKeyConfig => {
   const config = getConfig(env);
 
   if (!Number.isInteger(config.appEncryptionKeyCurrentVersion) || config.appEncryptionKeyCurrentVersion <= 0) {
-    throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+    throw encryptionNotConfigured();
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(config.appEncryptionKeysJson) as unknown;
   } catch {
-    throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+    throw encryptionNotConfigured();
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+    throw encryptionNotConfigured();
   }
 
   const keys = new Map<number, string>();
@@ -60,14 +63,14 @@ const readEncryptionConfig = (env: Env): EncryptionKeyConfig => {
   for (const [versionText, encodedKey] of Object.entries(parsed)) {
     const version = Number(versionText);
     if (!Number.isInteger(version) || version <= 0 || typeof encodedKey !== "string") {
-      throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+      throw encryptionNotConfigured();
     }
 
     keys.set(version, encodedKey);
   }
 
   if (!keys.has(config.appEncryptionKeyCurrentVersion)) {
-    throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+    throw encryptionNotConfigured();
   }
 
   return {
@@ -81,22 +84,36 @@ const importAesKey = async (encodedKey: string): Promise<CryptoKey> => {
 
   if (!pendingKey) {
     pendingKey = (async () => {
-      const rawKey = decodeBase64(encodedKey);
-
-      if (rawKey.byteLength !== AES_256_KEY_BYTES) {
-        throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+      let rawKey: Uint8Array;
+      try {
+        rawKey = decodeBase64(encodedKey);
+      } catch {
+        throw encryptionNotConfigured();
       }
 
-      return crypto.subtle.importKey("raw", toArrayBuffer(rawKey), { name: AES_GCM_ALGORITHM }, false, [
-        "encrypt",
-        "decrypt",
-      ]);
+      if (rawKey.byteLength !== AES_256_KEY_BYTES) {
+        throw encryptionNotConfigured();
+      }
+
+      try {
+        return await crypto.subtle.importKey("raw", toArrayBuffer(rawKey), { name: AES_GCM_ALGORITHM }, false, [
+          "encrypt",
+          "decrypt",
+        ]);
+      } catch {
+        throw encryptionNotConfigured();
+      }
     })();
 
     importedKeys.set(encodedKey, pendingKey);
   }
 
-  return pendingKey;
+  try {
+    return await pendingKey;
+  } catch (error) {
+    importedKeys.delete(encodedKey);
+    throw error;
+  }
 };
 
 const importVersionedKey = async (env: Env, version: number): Promise<CryptoKey> => {
@@ -104,10 +121,16 @@ const importVersionedKey = async (env: Env, version: number): Promise<CryptoKey>
   const encodedKey = config.keys.get(version);
 
   if (!encodedKey) {
-    throw new HttpError(500, "encryption_not_configured", "Repository token encryption is not configured.");
+    throw encryptionNotConfigured();
   }
 
   return importAesKey(encodedKey);
+};
+
+export const validateAppEncryptionConfig = async (env: Env): Promise<void> => {
+  const config = readEncryptionConfig(env);
+
+  await Promise.all([...config.keys.values()].map((encodedKey) => importAesKey(encodedKey)));
 };
 
 export const encryptSecret = async (env: Env, plaintext: string): Promise<EncryptedSecret> => {
@@ -150,6 +173,6 @@ export const decryptSecret = async (env: Env, encryptedSecret: EncryptedSecret):
 
     return new TextDecoder().decode(plaintext);
   } catch {
-    throw new HttpError(500, "encryption_not_configured", "Stored repository token could not be decrypted.");
+    throw encryptionNotConfigured("Stored repository token could not be decrypted.");
   }
 };
