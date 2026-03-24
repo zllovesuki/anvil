@@ -27,6 +27,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@ansi-tools/parser": "^1.0.15",
     "@cloudflare/sandbox": "^0.7.18",
     "@cloudflare/util-en-garde": "^8.0.13",
     "drizzle-orm": "^0.45.1",

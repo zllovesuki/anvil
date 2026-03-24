@@ -26,8 +26,6 @@ export const RunDetailPage = () => {
   const [errorRunKey, setErrorRunKey] = useState<string | null>(null);
   // overview is now header-integrated, no collapse state needed
   const maxSeqRef = useRef(0);
-  const logContainerRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
   const detailRef = useRef(detail);
   detailRef.current = detail;
   const loadedRunKeyRef = useRef(loadedRunKey);
@@ -189,18 +187,6 @@ export const RunDetailPage = () => {
     onEvent: handleLogEvent,
     onStateUpdate: handleStateUpdate,
   });
-  // Auto-scroll on new logs
-  useEffect(() => {
-    const container = logContainerRef.current;
-    if (!container || !autoScrollRef.current) return;
-    container.scrollTop = container.scrollHeight;
-  }, [logs]);
-  const handleScroll = () => {
-    const container = logContainerRef.current;
-    if (!container) return;
-    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
-    autoScrollRef.current = atBottom;
-  };
   // Cancel handler
   const handleCancel = async () => {
     if (!runId || canceling) return;
@@ -340,12 +326,7 @@ export const RunDetailPage = () => {
         </div>
 
         {/* Right column — logs */}
-        <LogViewer
-          logs={logs}
-          logStreamStatus={logStreamStatus}
-          logContainerRef={logContainerRef}
-          onScroll={handleScroll}
-        />
+        <LogViewer logs={logs} logStreamStatus={logStreamStatus} />
       </div>
     </div>
   );
