@@ -11,8 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "types:generate": "wrangler types --env-file .dev.vars.example",
-    "types:check": "wrangler types --env-file .dev.vars.example --check",
-    "typecheck": "npm run types:check && tsc --noEmit",
+    "typecheck": "npm run types:generate && tsc --noEmit",
     "db:generate:d1": "drizzle-kit generate --config=drizzle-d1.config.ts",
     "db:generate:project-do": "drizzle-kit generate --config=drizzle-project-do.config.ts",
     "db:generate:run-do": "drizzle-kit generate --config=drizzle-run-do.config.ts",
@@ -23,6 +22,7 @@
     "db:seed-initial-user": "node --import tsx scripts/seed-bootstrap-invite.ts",
     "test:integration:queue": "vitest run -c vitest.integration.config.ts",
     "test:e2e": "npx playwright test -c tests/e2e/playwright.config.ts",
+    "deploy": "npm run db:migrate:d1 && npm run build && wrangler deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
