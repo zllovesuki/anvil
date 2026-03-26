@@ -33,6 +33,7 @@ describe("worker routes", () => {
           repoUrl: "https://github.com/example/version-touch-project",
           defaultBranch: "main",
           configPath: ".anvil.yml",
+          dispatchMode: "queue",
         }),
       });
       expect(createdProject.status).toBe(201);
@@ -125,6 +126,7 @@ describe("worker routes", () => {
           repoUrl: "https://github.com/example/owner-only-project",
           defaultBranch: "main",
           configPath: ".anvil.yml",
+          dispatchMode: "queue",
         }),
       });
       expect(createdProject.status).toBe(201);

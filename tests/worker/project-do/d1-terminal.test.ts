@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 
 import { CommitSha, DEFAULT_DISPATCH_MODE, DEFAULT_EXECUTION_RUNTIME } from "@/contracts";
+import { expectTrusted, PositiveInteger } from "@/worker/contracts";
 import { D1_RETRY_DELAYS_MS } from "@/worker/durable/project-do/constants";
 import { createD1Db } from "@/worker/db/d1";
 import * as d1Schema from "@/worker/db/d1/schema";
@@ -19,6 +20,7 @@ import {
   createTestProjectDoContext,
   expectAcceptedManualRun,
   finalizeRunExecutionWithoutAlarm,
+  requestRunCancelWithoutAlarm,
 } from "../../helpers/project-do";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 import { readProjectDoRows, seedProject, seedUser } from "../../helpers/runtime";
@@ -417,6 +419,103 @@ describe("ProjectDO terminal D1 synchronization", () => {
       const db = createD1Db(env.DB);
       const d1Row = await db.select().from(d1Schema.runIndex).where(eq(d1Schema.runIndex.id, accepted.runId)).limit(1);
       expect(d1Row[0]?.status).toBe("passed");
+    });
+
+    it("repairs the active step before reconciling canceled RunDO terminal state", async () => {
+      const user = await seedUser({
+        email: "canceled-step-repair@example.com",
+        slug: "canceled-step-repair-user",
+      });
+      const project = await seedProject(user, {
+        projectSlug: "canceled-step-repair-project",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+      const claim = await claimRunWorkWithoutAlarm(projectStub, {
+        projectId: project.id,
+        runId: accepted.runId,
+      });
+      expect(claim.kind).toBe("execute");
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const context = createTestProjectDoContext(instance);
+
+        await reconcileAcceptedRunD1Sync(context, project.id);
+      });
+
+      const stepPosition = expectTrusted(PositiveInteger, 1, "PositiveInteger");
+      const runStub = env.RUN_DO.getByName(accepted.runId);
+      await runStub.replaceSteps({
+        runId: accepted.runId,
+        steps: [
+          {
+            position: stepPosition,
+            name: "Install",
+            command: "npm ci",
+          },
+        ],
+      });
+      await runStub.updateRunState({
+        runId: accepted.runId,
+        status: "starting",
+        currentStep: null,
+        startedAt: accepted.queuedAt,
+        finishedAt: null,
+        exitCode: null,
+        errorMessage: null,
+      });
+      await runStub.updateStepState({
+        runId: accepted.runId,
+        position: stepPosition,
+        status: "running",
+        startedAt: accepted.queuedAt,
+        finishedAt: null,
+        exitCode: null,
+      });
+      await runStub.updateRunState({
+        runId: accepted.runId,
+        status: "running",
+        currentStep: stepPosition,
+        startedAt: accepted.queuedAt,
+        finishedAt: null,
+        exitCode: null,
+        errorMessage: null,
+      });
+
+      const cancelResult = await requestRunCancelWithoutAlarm(projectStub, {
+        projectId: project.id,
+        runId: accepted.runId,
+      });
+      expect(cancelResult.status).toBe("cancel_requested");
+
+      await finalizeRunExecutionWithoutAlarm(projectStub, {
+        projectId: project.id,
+        runId: accepted.runId,
+        terminalStatus: "canceled",
+        lastError: null,
+      });
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const context = createTestProjectDoContext(instance);
+
+        await reconcileTerminalRunD1Sync(context, project.id);
+      });
+
+      const detail = await runStub.getRunDetail(accepted.runId);
+      expect(detail.meta?.status).toBe("canceled");
+      expect(detail.meta?.currentStep).toBeNull();
+      expect(detail.steps[0]?.status).toBe("failed");
+      expect(detail.steps[0]?.finishedAt).not.toBeNull();
+      expect(detail.steps[0]?.exitCode).toBeNull();
+
+      const db = createD1Db(env.DB);
+      const d1Row = await db.select().from(d1Schema.runIndex).where(eq(d1Schema.runIndex.id, accepted.runId)).limit(1);
+      expect(d1Row[0]?.status).toBe("canceled");
     });
   });
 });

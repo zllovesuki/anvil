@@ -304,34 +304,30 @@ describe("ProjectDO transition invariants", () => {
       });
       const stub = env.PROJECT_DO.getByName(project.id);
 
-      const firstAccepted = expectAcceptedManualRun(
-        await stub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: project.defaultBranch,
-        }),
-      );
-      const secondAccepted = expectAcceptedManualRun(
-        await stub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: BranchName.assertDecode("feature-x"),
-        }),
-      );
+      const firstAccepted = await acceptManualRunWithoutAlarm(stub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+      const secondAccepted = await acceptManualRunWithoutAlarm(stub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: BranchName.assertDecode("feature-x"),
+      });
 
-      const cancelResult = await stub.requestRunCancel({
+      const cancelResult = await requestRunCancelWithoutAlarm(stub, {
         projectId: project.id,
         runId: firstAccepted.runId,
       });
       expect(cancelResult.status).toBe("canceled");
 
-      const nextClaim = await stub.claimRunWork({
+      const nextClaim = await claimRunWorkWithoutAlarm(stub, {
         projectId: project.id,
         runId: secondAccepted.runId,
       });
       expect(nextClaim.kind).toBe("execute");
 
-      const canceledClaim = await stub.claimRunWork({
+      const canceledClaim = await claimRunWorkWithoutAlarm(stub, {
         projectId: project.id,
         runId: firstAccepted.runId,
       });

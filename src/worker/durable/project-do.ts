@@ -91,7 +91,7 @@ export class ProjectDO extends DurableObject {
         return;
       }
       const currentAlarm = await this.ctx.storage.getAlarm();
-      if (currentAlarm !== null) {
+      if (currentAlarm !== null && currentAlarm > Date.now()) {
         return;
       }
       try {

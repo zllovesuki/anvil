@@ -69,6 +69,9 @@ Manual verification is still expected for volatile paths, especially around sand
 
 - Available commands: `npm test`, `npm run test:integration:queue`, `npm run test:integration:workflows`, `npm run test:e2e`, `npx tsc -p tests/tsconfig.json --noEmit`
 - `tests/worker/` remains the fast worker-first harness for routes, D1/DO invariants, dispatch edge cases, and shared worker utilities
+- For `tests/worker/` setup that is not explicitly asserting alarm delivery or alarm persistence, prefer the `tests/helpers/project-do.ts` `*WithoutAlarm` helpers so state-invariant tests do not race background reconciliation.
+- Do not persist real alarms in tests unless the test is specifically about alarm scheduling or alarm delivery; record or stub the write instead when the assertion only cares that an alarm would be armed.
+- For route and ownership/atomicity tests that do not care about workflow dispatch, prefer projects with `dispatchMode: "queue"` to avoid background Workflow work leaking into teardown.
 - `tests/e2e/` is the live frontend Playwright suite for auth, route guards, profile flows, and basic project CRUD against a locally started app
 - `tests/integration/queue-runner-happy-path.test.ts` is the narrow end-to-end queue integration check: it applies local D1 migrations, seeds a bootstrap invite, starts the local app, accepts the invite, logs in, creates a project, triggers queued runs, verifies a passing run's steps/logs, and checks that back-to-back runs serialize correctly
 - `tests/integration/workflows-runner-happy-path.test.ts` is the narrow end-to-end Workflow-backed integration check: it applies local D1 migrations, seeds a bootstrap invite, starts the local app, accepts the invite, logs in, creates a Workflow-backed project, triggers a run, and verifies a passing run's steps/logs

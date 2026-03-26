@@ -1,6 +1,7 @@
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 
+import { BranchName, DispatchMode, ExecutionRuntime } from "@/contracts";
 import { ProjectDO } from "@/worker/durable";
 import {
   acceptManualRun as acceptManualRunCommand,
@@ -8,6 +9,9 @@ import {
   finalizeRunExecution as finalizeRunExecutionCommand,
   requestRunCancel as requestRunCancelCommand,
 } from "@/worker/durable/project-do/commands";
+import { getProjectConfigRow } from "@/worker/durable/project-do/repo";
+import { transitionAcceptManualRun } from "@/worker/durable/project-do/transitions";
+import { expectTrusted } from "@/worker/contracts";
 import type { ProjectDoContext } from "@/worker/durable/project-do/types";
 import { createLogger } from "@/worker/services/logger";
 
@@ -47,7 +51,7 @@ export const createBoundStorageProxy = (
 
 export const createBoundTransactionProxy = (
   txn: DurableObjectTransaction,
-  overrides: Partial<Pick<DurableObjectTransaction, "setAlarm">>,
+  overrides: Partial<Pick<DurableObjectTransaction, "getAlarm" | "setAlarm">>,
 ): DurableObjectTransaction =>
   new Proxy(txn, {
     get(target, prop, receiver) {
@@ -120,6 +124,43 @@ export const acceptManualRunWithoutAlarm = async (
   }
 
   return expectAcceptedManualRun(accepted);
+};
+
+export const fillManualRunQueueWithoutAlarmOrRunInitialization = async (
+  projectStub: ReturnType<typeof env.PROJECT_DO.getByName>,
+  input: Parameters<typeof acceptManualRunCommand>[1],
+  count: number,
+): Promise<void> => {
+  await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+    const context = createAlarmSchedulingSuppressedContext(createTestProjectDoContext(instance));
+
+    context.db.transaction((tx) => {
+      const projectConfigRow = getProjectConfigRow(tx, input.projectId);
+      if (!projectConfigRow) {
+        throw new Error(`Project config ${input.projectId} is missing during test queue fill.`);
+      }
+
+      // Queue saturation tests only need ProjectDO rows. Skipping eager RunDO
+      // initialization removes a large amount of setup overhead on busy CI.
+      const resolvedInput = {
+        projectId: input.projectId,
+        triggeredByUserId: input.triggeredByUserId,
+        branch: input.branch ?? expectTrusted(BranchName, projectConfigRow.defaultBranch, "BranchName"),
+        repoUrl: projectConfigRow.repoUrl,
+        configPath: projectConfigRow.configPath,
+        dispatchMode: expectTrusted(DispatchMode, projectConfigRow.dispatchMode, "DispatchMode"),
+        executionRuntime: expectTrusted(ExecutionRuntime, projectConfigRow.executionRuntime, "ExecutionRuntime"),
+      };
+      const now = Date.now();
+
+      for (let index = 0; index < count; index += 1) {
+        const accepted = transitionAcceptManualRun(context, tx, resolvedInput, now + index);
+        if (accepted.kind !== "accepted") {
+          throw new Error(`Expected accepted manual run during test queue fill, got ${accepted.reason}.`);
+        }
+      }
+    });
+  });
 };
 
 export const claimRunWorkWithoutAlarm = async (

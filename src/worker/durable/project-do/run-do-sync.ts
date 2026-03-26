@@ -12,6 +12,46 @@ import type { ProjectDoContext, ProjectRunRow, RunDoCancelUpdateOutcome } from "
 const getRunStub = (context: ProjectDoContext, runId: RunId) => context.env.RUN_DO.getByName(runId);
 const now = (): UnixTimestampMs => expectTrusted(UnixTimestampMs, Date.now(), "UnixTimestampMs");
 
+const repairActiveRunDoStep = async (
+  context: ProjectDoContext,
+  runId: RunId,
+  finishedAt: UnixTimestampMs,
+  terminalStatus: ProjectRunTerminalStatus,
+): Promise<void> => {
+  if (terminalStatus === "passed") {
+    return;
+  }
+
+  const runStub = getRunStub(context, runId);
+
+  try {
+    const detail = await runStub.getRunDetail(runId);
+    const position = detail.meta?.currentStep ?? null;
+    if (position === null) {
+      return;
+    }
+
+    const step = detail.steps.find((entry) => entry.position === position);
+    if (!step || (step.status !== "queued" && step.status !== "running")) {
+      return;
+    }
+
+    await runStub.updateStepState({
+      runId,
+      position,
+      status: "failed",
+      finishedAt,
+      exitCode: terminalStatus === "failed" ? 1 : null,
+    });
+  } catch (error) {
+    context.logger.warn("run_do_active_step_repair_failed", {
+      runId,
+      terminalStatus,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+
 export const ensureRunInitializedWithPayload = async (
   context: ProjectDoContext,
   payload: EnsureRunInput,
@@ -74,12 +114,15 @@ export const setRunDoTerminal = async (
 ): Promise<void> => {
   const runId = expectTrusted(RunId, row.runId, "RunId");
   const runStub = getRunStub(context, runId);
+  const finishedAt = now();
   await ensureRunInitialized(context, row);
 
   const current = await runStub.getRunSummary(runId);
   if (current && (current.status === "passed" || current.status === "failed" || current.status === "canceled")) {
     return;
   }
+
+  await repairActiveRunDoStep(context, runId, finishedAt, terminalStatus);
 
   if (terminalStatus === "canceled") {
     if (!current) {
@@ -116,8 +159,8 @@ export const setRunDoTerminal = async (
       runId,
       status: "canceled",
       currentStep: null,
-      startedAt: cancelState.status === "queued" ? cancelState.startedAt : (cancelState.startedAt ?? now()),
-      finishedAt: now(),
+      startedAt: cancelState.status === "queued" ? cancelState.startedAt : (cancelState.startedAt ?? finishedAt),
+      finishedAt,
       exitCode: null,
       errorMessage,
     });
@@ -141,7 +184,7 @@ export const setRunDoTerminal = async (
     status: terminalStatus,
     currentStep: null,
     startedAt: current?.startedAt ?? null,
-    finishedAt: now(),
+    finishedAt,
     exitCode: terminalStatus === "passed" ? (current?.exitCode ?? 0) : (current?.exitCode ?? 1),
     errorMessage,
   };

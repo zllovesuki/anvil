@@ -3,7 +3,8 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_DISPATCH_MODE, DEFAULT_EXECUTION_RUNTIME } from "@/contracts";
+import { DEFAULT_DISPATCH_MODE, DEFAULT_EXECUTION_RUNTIME, UnixTimestampMs } from "@/contracts";
+import { expectTrusted, PositiveInteger } from "@/worker/contracts";
 import { DISPATCH_RETRY_DELAYS_MS, HEARTBEAT_STALE_AFTER_MS } from "@/worker/durable/project-do/constants";
 import { createD1Db } from "@/worker/db/d1";
 import * as d1Schema from "@/worker/db/d1/schema";
@@ -15,11 +16,16 @@ import {
   reconcileTerminalRunD1Sync,
 } from "@/worker/durable/project-do/reconciliation";
 import { recoverWorkflowDispatchFailure } from "@/worker/durable/project-do/commands";
-import { getDispatchRetryAt, getSandboxCleanupRetryState } from "@/worker/durable/project-do/sidecar-state";
+import {
+  getDispatchRetryAt,
+  getSandboxCleanupRetryState,
+  setHeartbeatAt,
+} from "@/worker/durable/project-do/sidecar-state";
 import type { ProjectDoContext } from "@/worker/durable/project-do/types";
 
 import {
   acceptManualRunWithoutAlarm,
+  claimRunWorkWithoutAlarm,
   createTestProjectDoContext,
   expectAcceptedManualRun,
 } from "../../helpers/project-do";
@@ -43,15 +49,13 @@ describe("ProjectDO watchdog and dispatch recovery", () => {
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
 
-      const accepted = expectAcceptedManualRun(
-        await projectStub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: project.defaultBranch,
-        }),
-      );
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
 
-      const claim = await projectStub.claimRunWork({
+      const claim = await claimRunWorkWithoutAlarm(projectStub, {
         projectId: project.id,
         runId: accepted.runId,
       });
@@ -79,6 +83,83 @@ describe("ProjectDO watchdog and dispatch recovery", () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it("repairs the active step before failing a stale active run during watchdog recovery", async () => {
+    const baseTime = 1_712_000_000_000;
+    const startedAt = expectTrusted(UnixTimestampMs, baseTime, "UnixTimestampMs");
+    const user = await seedUser({
+      email: "watchdog-step-repair@example.com",
+      slug: "watchdog-step-repair-user",
+    });
+    const project = await seedProject(user, {
+      projectSlug: "watchdog-step-repair-project",
+    });
+    const projectStub = env.PROJECT_DO.getByName(project.id);
+
+    const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+      projectId: project.id,
+      triggeredByUserId: user.id,
+      branch: project.defaultBranch,
+    });
+
+    const claim = await claimRunWorkWithoutAlarm(projectStub, {
+      projectId: project.id,
+      runId: accepted.runId,
+    });
+    expect(claim.kind).toBe("execute");
+
+    const stepPosition = expectTrusted(PositiveInteger, 1, "PositiveInteger");
+    const runStub = env.RUN_DO.getByName(accepted.runId);
+    await runStub.replaceSteps({
+      runId: accepted.runId,
+      steps: [
+        {
+          position: stepPosition,
+          name: "Install",
+          command: "npm ci",
+        },
+      ],
+    });
+    await runStub.updateRunState({
+      runId: accepted.runId,
+      status: "starting",
+      currentStep: null,
+      startedAt,
+      finishedAt: null,
+      exitCode: null,
+      errorMessage: null,
+    });
+    await runStub.updateStepState({
+      runId: accepted.runId,
+      position: stepPosition,
+      status: "running",
+      startedAt,
+      finishedAt: null,
+      exitCode: null,
+    });
+    await runStub.updateRunState({
+      runId: accepted.runId,
+      status: "running",
+      currentStep: stepPosition,
+      startedAt,
+      finishedAt: null,
+      exitCode: null,
+      errorMessage: null,
+    });
+
+    await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+      const context = createTestProjectDoContext(instance);
+      await setHeartbeatAt(context, accepted.runId, baseTime);
+      await expect(reconcileActiveRunWatchdog(context, project.id)).resolves.toBe(accepted.runId);
+    });
+
+    const detail = await runStub.getRunDetail(accepted.runId);
+    expect(detail.meta?.status).toBe("failed");
+    expect(detail.meta?.currentStep).toBeNull();
+    expect(detail.meta?.errorMessage).toBe("runner_lost");
+    expect(detail.steps[0]?.status).toBe("failed");
+    expect(detail.steps[0]?.finishedAt).not.toBeNull();
   });
 
   it("persists sandbox cleanup retry state when watchdog cleanup fails", async () => {

@@ -7,7 +7,7 @@ import {
   type UserId,
 } from "@/contracts";
 import { expectTrusted } from "@/worker/contracts";
-import { acceptManualRunWithoutAlarm } from "../../helpers/project-do";
+import { fillManualRunQueueWithoutAlarmOrRunInitialization } from "../../helpers/project-do";
 import { getProjectStub } from "../../helpers/runtime";
 
 export const BEFORE_SHA = "1111111111111111111111111111111111111111";
@@ -41,15 +41,16 @@ export const fillProjectQueueToCapacity = async (input: {
   projectId: ProjectId;
   userId: UserId;
   branch: BranchNameValue;
-}): Promise<void> => {
-  for (let index = 0; index < 20; index += 1) {
-    await acceptManualRunWithoutAlarm(getProjectStub(input.projectId), {
+}): Promise<void> =>
+  await fillManualRunQueueWithoutAlarmOrRunInitialization(
+    getProjectStub(input.projectId),
+    {
       projectId: input.projectId,
       triggeredByUserId: input.userId,
       branch: input.branch,
-    });
-  }
-};
+    },
+    20,
+  );
 
 export const freeOneQueuedSlot = async (projectId: ProjectId, runId: string): Promise<void> => {
   const claim = await getProjectStub(projectId).claimRunWork({

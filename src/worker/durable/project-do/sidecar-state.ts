@@ -214,8 +214,13 @@ const scheduleAlarmAtOnStorage = async (
   }
 
   const existing = await storage.getAlarm();
-  if (existing === null || timestamp < existing) {
-    await storage.setAlarm(timestamp);
+  const currentTime = Date.now();
+  const nextTimestamp = timestamp <= currentTime ? currentTime : timestamp;
+
+  // Wrangler local dev can preserve a past-due alarm timestamp across restarts without
+  // delivering it. Treat overdue alarms as stale and re-arm them so reconciliation resumes.
+  if (existing === null || existing <= currentTime || nextTimestamp < existing) {
+    await storage.setAlarm(nextTimestamp);
   }
 };
 

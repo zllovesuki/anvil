@@ -26,8 +26,9 @@ import {
   claimRunWorkWithoutAlarm,
   createAlarmWriteFailingContext,
   createBoundStorageProxy,
+  createBoundTransactionProxy,
   createTestProjectDoContext,
-  expectAcceptedManualRun,
+  finalizeRunExecutionWithoutAlarm,
   getProjectDoInternals,
   withPatchedStorage,
 } from "../../helpers/project-do";
@@ -96,13 +97,11 @@ describe("ProjectDO alarm behavior", () => {
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
 
-      expectAcceptedManualRun(
-        await projectStub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: project.defaultBranch,
-        }),
-      );
+      await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
 
       await runInDurableObject(projectStub, async (instance: ProjectDO) => {
         const baseContext = createTestProjectDoContext(instance);
@@ -123,6 +122,57 @@ describe("ProjectDO alarm behavior", () => {
         expect(alarmWrites[0]).toBeLessThanOrEqual(Date.now() + 2_000);
       });
     });
+
+    it("rewrites an overdue alarm when canceling an active run after restart", async () => {
+      const user = await seedUser({
+        email: "overdue-cancel-rearm@example.com",
+        slug: "overdue-cancel-rearm-user",
+      });
+      const project = await seedProject(user, {
+        projectSlug: "overdue-cancel-rearm-project",
+        dispatchMode: "workflows",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+      const claim = await claimRunWorkWithoutAlarm(projectStub, {
+        projectId: project.id,
+        runId: accepted.runId,
+      });
+      expect(claim.kind).toBe("execute");
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const overdueAlarmAt = Date.now() - 60_000;
+        const baseContext = createTestProjectDoContext(instance);
+        const alarmWrites: number[] = [];
+        const transaction: DurableObjectStorage["transaction"] = async (closure) =>
+          baseContext.ctx.storage.transaction(async (txn) => {
+            const patchedTxn = createBoundTransactionProxy(txn, {
+              getAlarm: async () => overdueAlarmAt,
+              setAlarm: async (scheduledTime, options) => {
+                alarmWrites.push(Number(scheduledTime));
+              },
+            });
+
+            return await closure(patchedTxn);
+          });
+        const storage = createBoundStorageProxy(baseContext.ctx.storage, { transaction });
+        const context = withPatchedStorage(baseContext, storage);
+
+        const result = await requestRunCancelCommand(context, {
+          projectId: project.id,
+          runId: accepted.runId,
+        });
+
+        expect(result.status).toBe("cancel_requested");
+        expect(alarmWrites).toHaveLength(1);
+        expect(alarmWrites[0]).toBeGreaterThan(overdueAlarmAt);
+      });
+    });
   });
 
   describe("sandbox cleanup retries", () => {
@@ -136,28 +186,27 @@ describe("ProjectDO alarm behavior", () => {
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
 
-      const accepted = expectAcceptedManualRun(
-        await projectStub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: project.defaultBranch,
-        }),
-      );
-      const claim = await projectStub.claimRunWork({
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+      const claim = await claimRunWorkWithoutAlarm(projectStub, {
         projectId: project.id,
         runId: accepted.runId,
       });
       expect(claim.kind).toBe("execute");
 
+      await finalizeRunExecutionWithoutAlarm(projectStub, {
+        projectId: project.id,
+        runId: accepted.runId,
+        terminalStatus: "failed",
+        lastError: "cleanup_pending",
+        sandboxDestroyed: false,
+      });
+
       await runInDurableObject(projectStub, async (instance: ProjectDO) => {
         const baseContext = createTestProjectDoContext(instance);
-        await finalizeRunExecutionCommand(baseContext, {
-          projectId: project.id,
-          runId: accepted.runId,
-          terminalStatus: "failed",
-          lastError: "cleanup_pending",
-          sandboxDestroyed: false,
-        });
         await sidecarState.setSandboxCleanupRetryState(baseContext, accepted.runId, {
           attempt: 1,
           nextAt: Date.now() - 1,
@@ -236,21 +285,17 @@ describe("ProjectDO alarm behavior", () => {
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
 
-      const firstAccepted = expectAcceptedManualRun(
-        await projectStub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: project.defaultBranch,
-        }),
-      );
-      const secondAccepted = expectAcceptedManualRun(
-        await projectStub.acceptManualRun({
-          projectId: project.id,
-          triggeredByUserId: user.id,
-          branch: BranchName.assertDecode("release"),
-        }),
-      );
-      const claim = await projectStub.claimRunWork({
+      const firstAccepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+      const secondAccepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: BranchName.assertDecode("release"),
+      });
+      const claim = await claimRunWorkWithoutAlarm(projectStub, {
         projectId: project.id,
         runId: firstAccepted.runId,
       });

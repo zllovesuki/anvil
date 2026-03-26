@@ -1,5 +1,6 @@
 import type {
   CreateWebhookRequest,
+  DispatchMode,
   GetProjectWebhooksResponse,
   ProjectDetail,
   ProjectResponse,
@@ -59,6 +60,7 @@ export const createOwnedProjectContext = async (options?: {
     defaultBranch?: string;
     configPath?: string;
     name?: string;
+    dispatchMode?: DispatchMode;
   };
 }): Promise<OwnedProjectContext> => {
   const user = await seedUser({
@@ -72,6 +74,7 @@ export const createOwnedProjectContext = async (options?: {
     defaultBranch: options?.project?.defaultBranch,
     configPath: options?.project?.configPath,
     name: options?.project?.name,
+    dispatchMode: options?.project?.dispatchMode ?? "queue",
   });
   const sessionId = await createAuthenticatedSession(user.id);
 
