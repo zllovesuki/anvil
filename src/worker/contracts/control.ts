@@ -73,6 +73,47 @@ export type RunHeartbeatInput = TypeFromCodec<typeof RunHeartbeatInput>;
 export const RunHeartbeatResult = eg.union([RunControlState, eg.null]);
 export type RunHeartbeatResult = TypeFromCodec<typeof RunHeartbeatResult>;
 
+export const RecoverWorkflowDispatchFailureInput = eg.exactStrict(
+  eg.object({
+    projectId: ProjectId,
+    runId: RunId,
+    errorMessage: eg.string,
+  }),
+);
+export type RecoverWorkflowDispatchFailureInput = TypeFromCodec<typeof RecoverWorkflowDispatchFailureInput>;
+
+const RecoverWorkflowDispatchFailureRearmedResult = eg.exactStrict(
+  eg.object({
+    kind: eg.literal("rearmed"),
+  }),
+);
+
+const RecoverWorkflowDispatchFailureAlreadyActiveResult = eg.exactStrict(
+  eg.object({
+    kind: eg.literal("already_active"),
+  }),
+);
+
+const RecoverWorkflowDispatchFailureTerminalResult = eg.exactStrict(
+  eg.object({
+    kind: eg.literal("terminal"),
+  }),
+);
+
+const RecoverWorkflowDispatchFailureStaleResult = eg.exactStrict(
+  eg.object({
+    kind: eg.literal("stale"),
+  }),
+);
+
+export const RecoverWorkflowDispatchFailureResult = eg.union([
+  RecoverWorkflowDispatchFailureRearmedResult,
+  RecoverWorkflowDispatchFailureAlreadyActiveResult,
+  RecoverWorkflowDispatchFailureTerminalResult,
+  RecoverWorkflowDispatchFailureStaleResult,
+]);
+export type RecoverWorkflowDispatchFailureResult = TypeFromCodec<typeof RecoverWorkflowDispatchFailureResult>;
+
 export const FinalizeRunExecutionInput = eg.exactStrict(
   eg.object({
     projectId: ProjectId,

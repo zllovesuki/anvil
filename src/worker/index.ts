@@ -1,5 +1,6 @@
 import { Sandbox } from "@cloudflare/sandbox";
 import { handleQueueBatch } from "@/worker/dispatch/queue/consumer";
+import { RunWorkflows } from "@/worker/dispatch/workflows";
 import { ProjectDO, RunDO } from "@/worker/durable";
 import { app } from "@/worker/router";
 import type { RunQueueMessage } from "@/worker/contracts";
@@ -14,5 +15,5 @@ const handler: ExportedHandler<Env, RunQueueMessage> = {
   },
 };
 
-export { ProjectDO, RunDO, Sandbox };
+export { ProjectDO, RunDO, RunWorkflows, Sandbox };
 export default handler;

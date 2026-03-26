@@ -5,6 +5,7 @@ import {
   BranchName,
   DEFAULT_DISPATCH_MODE,
   DEFAULT_EXECUTION_RUNTIME,
+  type DispatchMode,
   OwnerSlug,
   ProjectId,
   ProjectSlug,
@@ -89,6 +90,7 @@ interface SeedProjectOverrides {
   repoUrl?: string;
   defaultBranch?: string;
   configPath?: string;
+  dispatchMode?: DispatchMode;
   repoToken?: string | null;
 }
 
@@ -186,7 +188,7 @@ export const seedProject = async (
     defaultBranch: project.defaultBranch,
     configPath: project.configPath,
     encryptedRepoToken: encryptedToken,
-    dispatchMode: DEFAULT_DISPATCH_MODE,
+    dispatchMode: overrides.dispatchMode ?? DEFAULT_DISPATCH_MODE,
     executionRuntime: DEFAULT_EXECUTION_RUNTIME,
     createdAt: now,
     updatedAt: now,

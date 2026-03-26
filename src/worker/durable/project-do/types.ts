@@ -68,6 +68,7 @@ export interface UpdateProjectConfigInput {
   repoUrl?: string;
   defaultBranch?: string;
   configPath?: string;
+  dispatchMode?: DispatchMode;
   encryptedRepoToken?: EncryptedSecret | null;
   now: number;
 }
@@ -78,6 +79,7 @@ export interface ProjectConfigState {
   repoUrl: string;
   defaultBranch: string;
   configPath: string;
+  dispatchMode: DispatchMode;
   createdAt: number;
   updatedAt: number;
 }

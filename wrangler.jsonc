@@ -94,6 +94,13 @@
 			},
 		],
 	},
+	"workflows": [
+		{
+			"name": "anvil-run-workflows",
+			"binding": "RUN_WORKFLOWS",
+			"class_name": "RunWorkflows",
+		},
+	],
 	"migrations": [
 		{
 			"tag": "v1",

@@ -14,7 +14,8 @@ import {
   reconcileActiveRunWatchdog,
   reconcileTerminalRunD1Sync,
 } from "@/worker/durable/project-do/reconciliation";
-import { getSandboxCleanupRetryState } from "@/worker/durable/project-do/sidecar-state";
+import { recoverWorkflowDispatchFailure } from "@/worker/durable/project-do/commands";
+import { getDispatchRetryAt, getSandboxCleanupRetryState } from "@/worker/durable/project-do/sidecar-state";
 import type { ProjectDoContext } from "@/worker/durable/project-do/types";
 
 import {
@@ -154,6 +155,7 @@ describe("ProjectDO watchdog and dispatch recovery", () => {
       });
       const project = await seedProject(user, {
         projectSlug: "dispatch-project",
+        dispatchMode: "queue",
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
       const accepted = await acceptManualRunWithoutAlarm(projectStub, {
@@ -208,5 +210,432 @@ describe("ProjectDO watchdog and dispatch recovery", () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it("starts a Workflows instance when the run dispatch mode is workflows", async () => {
+    const user = await seedUser({
+      email: "workflow-dispatch@example.com",
+      slug: "workflow-dispatch-user",
+    });
+    const project = await seedProject(user, {
+      projectSlug: "workflow-dispatch-project",
+      dispatchMode: "workflows",
+    });
+    const projectStub = env.PROJECT_DO.getByName(project.id);
+    const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+      projectId: project.id,
+      triggeredByUserId: user.id,
+      branch: project.defaultBranch,
+    });
+
+    await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+      const baseContext = createTestProjectDoContext(instance);
+      const createBatch = vi.fn(async () => [{ id: accepted.runId }]);
+      const context: ProjectDoContext = {
+        ...baseContext,
+        env: Object.assign(Object.create(baseContext.env), {
+          RUN_WORKFLOWS: {
+            createBatch,
+            get: vi.fn(),
+          },
+        }) as Env,
+      };
+      await baseContext.ctx.storage.deleteAlarm();
+
+      await dispatchExecutableRun(context, project.id);
+
+      expect(createBatch).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: accepted.runId,
+          params: expect.objectContaining({
+            runId: accepted.runId,
+            projectId: project.id,
+            dispatchMode: "workflows",
+            executionRuntime: DEFAULT_EXECUTION_RUNTIME,
+          }),
+        }),
+      ]);
+    });
+
+    const rows = await readProjectDoRows(project.id);
+    expect(rows.runs[0]?.dispatchStatus).toBe("queued");
+  });
+
+  it.each([
+    {
+      workflowStatus: "errored" as const,
+      expectedError: "reached terminal status errored",
+    },
+    {
+      workflowStatus: "terminated" as const,
+      expectedError: "reached terminal status terminated",
+    },
+  ])(
+    "rearms a queued workflow dispatch when the retained instance is $workflowStatus",
+    async ({ workflowStatus, expectedError }) => {
+      const user = await seedUser({
+        email: `workflow-${workflowStatus}-queued@example.com`,
+        slug: `workflow-${workflowStatus}-queued-user`,
+      });
+      const project = await seedProject(user, {
+        projectSlug: `workflow-${workflowStatus}-queued-project`,
+        dispatchMode: "workflows",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const baseContext = createTestProjectDoContext(instance);
+        const status = vi.fn(async () => ({
+          status: workflowStatus,
+        }));
+        const context: ProjectDoContext = {
+          ...baseContext,
+          env: Object.assign(Object.create(baseContext.env), {
+            RUN_WORKFLOWS: {
+              createBatch: vi.fn(async () => [{ id: accepted.runId }]),
+              get: vi.fn(async () => ({
+                status,
+                restart: vi.fn(async () => {}),
+              })),
+            },
+          }) as Env,
+        };
+        await baseContext.ctx.storage.deleteAlarm();
+
+        await dispatchExecutableRun(context, project.id);
+        await expect(dispatchExecutableRun(context, project.id)).resolves.toBeNull();
+
+        const retryAt = await getDispatchRetryAt(baseContext, accepted.runId);
+        expect(retryAt ?? 0).toBeGreaterThan(Date.now());
+      });
+
+      const rows = await readProjectDoRows(project.id);
+      expect(rows.runs[0]?.status).toBe("executable");
+      expect(rows.runs[0]?.dispatchStatus).toBe("pending");
+      expect(rows.runs[0]?.dispatchAttempts).toBe(1);
+      expect(rows.runs[0]?.lastError).toContain(expectedError);
+    },
+  );
+
+  it("rearms a queued workflow dispatch when workflow status inspection fails", async () => {
+    const user = await seedUser({
+      email: "workflow-queued-status-throw@example.com",
+      slug: "workflow-queued-status-throw-user",
+    });
+    const project = await seedProject(user, {
+      projectSlug: "workflow-queued-status-throw-project",
+      dispatchMode: "workflows",
+    });
+    const projectStub = env.PROJECT_DO.getByName(project.id);
+    const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+      projectId: project.id,
+      triggeredByUserId: user.id,
+      branch: project.defaultBranch,
+    });
+
+    await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+      const baseContext = createTestProjectDoContext(instance);
+      const context: ProjectDoContext = {
+        ...baseContext,
+        env: Object.assign(Object.create(baseContext.env), {
+          RUN_WORKFLOWS: {
+            createBatch: vi.fn(async () => [{ id: accepted.runId }]),
+            get: vi.fn(async () => ({
+              status: vi.fn(async () => {
+                throw new Error("workflow status unavailable");
+              }),
+              restart: vi.fn(async () => {}),
+            })),
+          },
+        }) as Env,
+      };
+      await baseContext.ctx.storage.deleteAlarm();
+
+      await dispatchExecutableRun(context, project.id);
+      await expect(dispatchExecutableRun(context, project.id)).resolves.toBeNull();
+
+      const retryAt = await getDispatchRetryAt(baseContext, accepted.runId);
+      expect(retryAt ?? 0).toBeGreaterThan(Date.now());
+    });
+
+    const rows = await readProjectDoRows(project.id);
+    expect(rows.runs[0]?.status).toBe("executable");
+    expect(rows.runs[0]?.dispatchStatus).toBe("pending");
+    expect(rows.runs[0]?.dispatchAttempts).toBe(1);
+    expect(rows.runs[0]?.lastError).toContain("workflow status unavailable");
+  });
+
+  it("preserves a workflow dispatch retry when the workflow rearms itself before dispatch returns", async () => {
+    const baseTime = 1_730_500_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => baseTime);
+
+    try {
+      const user = await seedUser({
+        email: "workflow-fast-failure@example.com",
+        slug: "workflow-fast-failure-user",
+      });
+      const project = await seedProject(user, {
+        projectSlug: "workflow-fast-failure-project",
+        dispatchMode: "workflows",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const baseContext = createTestProjectDoContext(instance);
+        let context: ProjectDoContext;
+        context = {
+          ...baseContext,
+          env: Object.assign(Object.create(baseContext.env), {
+            RUN_WORKFLOWS: {
+              createBatch: vi.fn(async () => {
+                const recovery = await recoverWorkflowDispatchFailure(baseContext, {
+                  projectId: project.id,
+                  runId: accepted.runId,
+                  errorMessage: "claim exploded",
+                });
+                expect(recovery).toEqual({
+                  kind: "rearmed",
+                });
+                return [{ id: accepted.runId }];
+              }),
+              get: vi.fn(),
+            },
+          }) as Env,
+        };
+        await baseContext.ctx.storage.deleteAlarm();
+
+        await dispatchExecutableRun(context, project.id);
+
+        const retryAt = await getDispatchRetryAt(baseContext, accepted.runId);
+        expect(retryAt ?? 0).toBeGreaterThan(Date.now());
+      });
+
+      const rows = await readProjectDoRows(project.id);
+      expect(rows.runs[0]?.status).toBe("executable");
+      expect(rows.runs[0]?.dispatchStatus).toBe("pending");
+      expect(rows.runs[0]?.dispatchAttempts).toBe(1);
+      expect(rows.runs[0]?.lastError).toBe("claim exploded");
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("restarts an existing Workflows instance after a rearmed pre-active failure", async () => {
+    const baseTime = 1_730_000_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => baseTime);
+    try {
+      const user = await seedUser({
+        email: "workflow-restart@example.com",
+        slug: "workflow-restart-user",
+      });
+      const project = await seedProject(user, {
+        projectSlug: "workflow-restart-project",
+        dispatchMode: "workflows",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const baseContext = createTestProjectDoContext(instance);
+        const restart = vi.fn(async () => {});
+        const context: ProjectDoContext = {
+          ...baseContext,
+          env: Object.assign(Object.create(baseContext.env), {
+            RUN_WORKFLOWS: {
+              createBatch: vi.fn(async () => [{ id: accepted.runId }]),
+              get: vi.fn(async () => ({
+                restart,
+              })),
+            },
+          }) as Env,
+        };
+        await baseContext.ctx.storage.deleteAlarm();
+
+        await dispatchExecutableRun(context, project.id);
+        const recovery = await recoverWorkflowDispatchFailure(context, {
+          projectId: project.id,
+          runId: accepted.runId,
+          errorMessage: "claim exploded",
+        });
+        expect(recovery).toEqual({
+          kind: "rearmed",
+        });
+        nowSpy.mockImplementation(() => baseTime + DISPATCH_RETRY_DELAYS_MS[0] + 1);
+
+        await dispatchExecutableRun(
+          {
+            ...context,
+            env: Object.assign(Object.create(context.env), {
+              RUN_WORKFLOWS: {
+                createBatch: vi.fn(async () => []),
+                get: vi.fn(async () => ({
+                  status: vi.fn(async () => ({
+                    status: "complete" as const,
+                  })),
+                  restart,
+                })),
+              },
+            }) as Env,
+          },
+          project.id,
+        );
+
+        expect(restart).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("does not restart an already-running Workflows instance when dispatch is replayed", async () => {
+    const user = await seedUser({
+      email: "workflow-running@example.com",
+      slug: "workflow-running-user",
+    });
+    const project = await seedProject(user, {
+      projectSlug: "workflow-running-project",
+      dispatchMode: "workflows",
+    });
+    const projectStub = env.PROJECT_DO.getByName(project.id);
+    const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+      projectId: project.id,
+      triggeredByUserId: user.id,
+      branch: project.defaultBranch,
+    });
+
+    await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+      const baseContext = createTestProjectDoContext(instance);
+      const restart = vi.fn(async () => {});
+      const status = vi.fn(async () => ({
+        status: "running" as const,
+      }));
+      const context: ProjectDoContext = {
+        ...baseContext,
+        env: Object.assign(Object.create(baseContext.env), {
+          RUN_WORKFLOWS: {
+            createBatch: vi.fn(async () => []),
+            get: vi.fn(async () => ({
+              status,
+              restart,
+            })),
+          },
+        }) as Env,
+      };
+      await baseContext.ctx.storage.deleteAlarm();
+
+      await dispatchExecutableRun(context, project.id);
+
+      expect(status).toHaveBeenCalledTimes(1);
+      expect(restart).not.toHaveBeenCalled();
+    });
+
+    const rows = await readProjectDoRows(project.id);
+    expect(rows.runs[0]?.dispatchStatus).toBe("queued");
+  });
+
+  it.each(["paused", "waitingForPause"] as const)(
+    "does not restart a retained Workflows instance when dispatch is replayed in %s state",
+    async (workflowStatus) => {
+      const user = await seedUser({
+        email: `workflow-${workflowStatus.toLowerCase()}@example.com`,
+        slug: `workflow-${workflowStatus.toLowerCase()}-user`,
+      });
+      const project = await seedProject(user, {
+        projectSlug: `workflow-${workflowStatus.toLowerCase()}-project`,
+        dispatchMode: "workflows",
+      });
+      const projectStub = env.PROJECT_DO.getByName(project.id);
+      const accepted = await acceptManualRunWithoutAlarm(projectStub, {
+        projectId: project.id,
+        triggeredByUserId: user.id,
+        branch: project.defaultBranch,
+      });
+
+      await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+        const baseContext = createTestProjectDoContext(instance);
+        const restart = vi.fn(async () => {});
+        const status = vi.fn(async () => ({
+          status: workflowStatus,
+        }));
+        const context: ProjectDoContext = {
+          ...baseContext,
+          env: Object.assign(Object.create(baseContext.env), {
+            RUN_WORKFLOWS: {
+              createBatch: vi.fn(async () => []),
+              get: vi.fn(async () => ({
+                status,
+                restart,
+              })),
+            },
+          }) as Env,
+        };
+        await baseContext.ctx.storage.deleteAlarm();
+
+        await dispatchExecutableRun(context, project.id);
+
+        expect(status).toHaveBeenCalledTimes(1);
+        expect(restart).not.toHaveBeenCalled();
+      });
+
+      const rows = await readProjectDoRows(project.id);
+      expect(rows.runs[0]?.dispatchStatus).toBe("queued");
+    },
+  );
+
+  it("keeps workflow dispatch pending when an existing instance has an unsupported status", async () => {
+    const user = await seedUser({
+      email: "workflow-unknown@example.com",
+      slug: "workflow-unknown-user",
+    });
+    const project = await seedProject(user, {
+      projectSlug: "workflow-unknown-project",
+      dispatchMode: "workflows",
+    });
+    const projectStub = env.PROJECT_DO.getByName(project.id);
+    await acceptManualRunWithoutAlarm(projectStub, {
+      projectId: project.id,
+      triggeredByUserId: user.id,
+      branch: project.defaultBranch,
+    });
+
+    await runInDurableObject(projectStub, async (instance: ProjectDO) => {
+      const baseContext = createTestProjectDoContext(instance);
+      const context: ProjectDoContext = {
+        ...baseContext,
+        env: Object.assign(Object.create(baseContext.env), {
+          RUN_WORKFLOWS: {
+            createBatch: vi.fn(async () => []),
+            get: vi.fn(async () => ({
+              status: vi.fn(async () => ({
+                status: "unknown" as const,
+              })),
+              restart: vi.fn(async () => {}),
+            })),
+          },
+        }) as Env,
+      };
+      await baseContext.ctx.storage.deleteAlarm();
+
+      await expect(dispatchExecutableRun(context, project.id)).resolves.toBeNull();
+    });
+
+    const rows = await readProjectDoRows(project.id);
+    expect(rows.runs[0]?.dispatchStatus).toBe("pending");
+    expect(rows.runs[0]?.dispatchAttempts).toBe(1);
+    expect(rows.runs[0]?.lastError).toContain("unsupported status unknown");
   });
 });

@@ -9,6 +9,8 @@ import {
   type ClaimRunWorkResult,
   type FinalizeRunExecutionInput,
   type FinalizeRunExecutionResult,
+  type RecoverWorkflowDispatchFailureInput,
+  type RecoverWorkflowDispatchFailureResult,
   type RecordVerifiedWebhookDeliveryInput,
   type RecordVerifiedWebhookDeliveryResult,
   type ProjectDetailState,
@@ -33,6 +35,7 @@ import {
   getWebhookVerificationMaterial as getWebhookVerificationMaterialCommand,
   initializeProject as initializeProjectCommand,
   listProjectWebhooks as listProjectWebhooksCommand,
+  recoverWorkflowDispatchFailure as recoverWorkflowDispatchFailureCommand,
   recordRunResolvedCommit as recordRunResolvedCommitCommand,
   recordRunHeartbeat as recordRunHeartbeatCommand,
   recordVerifiedWebhookDelivery as recordVerifiedWebhookDeliveryCommand,
@@ -246,6 +249,11 @@ export class ProjectDO extends DurableObject {
   }
   async finalizeRunExecution(input: FinalizeRunExecutionInput): Promise<FinalizeRunExecutionResult> {
     return await finalizeRunExecutionCommand(this.getProjectContext(), input);
+  }
+  async recoverWorkflowDispatchFailure(
+    input: RecoverWorkflowDispatchFailureInput,
+  ): Promise<RecoverWorkflowDispatchFailureResult> {
+    return await recoverWorkflowDispatchFailureCommand(this.getProjectContext(), input);
   }
   async recordRunResolvedCommit(input: RecordRunResolvedCommitInput): Promise<RecordRunResolvedCommitResult> {
     return await recordRunResolvedCommitCommand(this.getProjectContext(), input);

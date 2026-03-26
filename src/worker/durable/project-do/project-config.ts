@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { ProjectId, type WebhookProvider } from "@/contracts";
+import { DispatchMode, ProjectId, type WebhookProvider } from "@/contracts";
 import { expectTrusted } from "@/worker/contracts";
 import { getWebhookProviderCatalogEntry, validateWebhookConfigForUpsert } from "@/lib/webhooks";
 import * as projectSchema from "@/worker/db/durable/schema/project-do";
@@ -48,6 +48,7 @@ const toProjectConfigState = (row: ProjectConfigRow): ProjectConfigState => ({
   repoUrl: row.repoUrl,
   defaultBranch: row.defaultBranch,
   configPath: row.configPath,
+  dispatchMode: expectTrusted(DispatchMode, row.dispatchMode, "DispatchMode"),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
@@ -216,6 +217,8 @@ export const updateProjectConfig = async (
 
       const nextDefaultBranch = input.defaultBranch ?? existingRow.defaultBranch;
       const nextConfigPath = input.configPath ?? existingRow.configPath;
+      const nextDispatchMode =
+        input.dispatchMode ?? expectTrusted(DispatchMode, existingRow.dispatchMode, "DispatchMode");
       const updatedAt = getNextProjectUpdatedAt(input.now, existingRow.updatedAt);
       const webhookHandlingChanged =
         nextRepoUrl !== existingRow.repoUrl ||
@@ -228,6 +231,7 @@ export const updateProjectConfig = async (
           repoUrl: nextRepoUrl,
           defaultBranch: nextDefaultBranch,
           configPath: nextConfigPath,
+          dispatchMode: nextDispatchMode,
           repoTokenCiphertext:
             input.encryptedRepoToken === undefined
               ? existingRow.repoTokenCiphertext
@@ -267,6 +271,7 @@ export const updateProjectConfig = async (
           repoUrl: nextRepoUrl,
           defaultBranch: nextDefaultBranch,
           configPath: nextConfigPath,
+          dispatchMode: nextDispatchMode,
           createdAt: existingRow.createdAt,
           updatedAt,
         },

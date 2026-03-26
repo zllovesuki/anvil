@@ -232,6 +232,7 @@ describe("ProjectDO alarm behavior", () => {
       });
       const project = await seedProject(user, {
         projectSlug: "finalize-arm-failure-project",
+        dispatchMode: "queue",
       });
       const projectStub = env.PROJECT_DO.getByName(project.id);
 

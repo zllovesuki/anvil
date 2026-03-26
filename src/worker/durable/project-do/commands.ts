@@ -15,12 +15,15 @@ import {
   type AcceptManualRunInput,
   type ClaimRunWorkInput,
   type ClaimRunWorkResult,
+  D1SyncStatus,
   nullableTrusted,
   type PendingRunState,
   type ProjectDetailState,
   ProjectRunStatus,
   type FinalizeRunExecutionInput,
   type FinalizeRunExecutionResult,
+  type RecoverWorkflowDispatchFailureInput,
+  type RecoverWorkflowDispatchFailureResult,
   type RecordRunResolvedCommitResult,
   type RequestRunCancelInput,
   type RecordRunResolvedCommitInput,
@@ -31,8 +34,8 @@ import {
 } from "@/worker/contracts";
 import * as projectSchema from "@/worker/db/durable/schema/project-do";
 
-import { SANDBOX_CLEANUP_RETRY_DELAYS_MS } from "./constants";
-import { getProjectConfigRow, listPendingProjectDetailRows } from "./repo";
+import { DISPATCH_RETRY_DELAYS_MS, SANDBOX_CLEANUP_RETRY_DELAYS_MS } from "./constants";
+import { getProjectConfigRow, getRunRow, listPendingProjectDetailRows } from "./repo";
 import {
   getProjectConfigState,
   getProjectExecutionMaterial as getProjectExecutionMaterialState,
@@ -40,8 +43,13 @@ import {
   initializeProject as initializeProjectConfig,
   updateProjectConfig as updateProjectConfigState,
 } from "./project-config";
-import { syncRunMetadataToD1 } from "./reconciliation/d1-sync";
-import { ensureRunInitializedWithPayload, setRunDoTerminal, updateRunDoCancelRequested } from "./run-do-sync";
+import { getRetryDelay, syncRunMetadataToD1 } from "./reconciliation/index";
+import {
+  ensureRunInitialized,
+  ensureRunInitializedWithPayload,
+  setRunDoTerminal,
+  updateRunDoCancelRequested,
+} from "./run-do-sync";
 import {
   armReconciliation,
   rescheduleAlarmInTransaction,
@@ -51,6 +59,8 @@ import {
 } from "./sidecar-state";
 import {
   ensureProjectState,
+  nextTerminalD1SyncStatus,
+  promoteNextPendingRun,
   transitionAcceptManualRun,
   transitionClaimRunWork,
   transitionFinalizeRunExecution,
@@ -220,6 +230,96 @@ export const finalizeRunExecution = async (
     await setHeartbeatAt(context, input.runId, null);
   });
   return result;
+};
+
+export const recoverWorkflowDispatchFailure = async (
+  context: ProjectDoContext,
+  input: RecoverWorkflowDispatchFailureInput,
+): Promise<RecoverWorkflowDispatchFailureResult> => {
+  const result = await runCriticalReconciliationMutation(context, input.projectId, async () => {
+    const row = getRunRow(context.db, input.projectId, input.runId);
+    if (!row) {
+      return {
+        kind: "stale" as const,
+      };
+    }
+
+    if (row.status === "active" || row.status === "cancel_requested") {
+      return {
+        kind: "already_active" as const,
+      };
+    }
+
+    if (row.status !== "executable" || row.dispatchStatus !== "queued") {
+      return {
+        kind: "stale" as const,
+      };
+    }
+
+    const nextAttempt = row.dispatchAttempts + 1;
+    if (nextAttempt > DISPATCH_RETRY_DELAYS_MS.length) {
+      await context.db
+        .update(projectSchema.projectRuns)
+        .set({
+          status: "failed",
+          position: null,
+          dispatchStatus: "terminal",
+          dispatchAttempts: nextAttempt,
+          d1SyncStatus: nextTerminalD1SyncStatus(expectTrusted(D1SyncStatus, row.d1SyncStatus, "D1SyncStatus")),
+          lastError: "dispatch_failed",
+        })
+        .where(eq(projectSchema.projectRuns.runId, row.runId));
+      promoteNextPendingRun(context.db, input.projectId);
+
+      return {
+        kind: "terminal" as const,
+        row,
+      };
+    }
+
+    await context.db
+      .update(projectSchema.projectRuns)
+      .set({
+        dispatchStatus: "pending",
+        dispatchAttempts: nextAttempt,
+        lastError: input.errorMessage,
+      })
+      .where(eq(projectSchema.projectRuns.runId, row.runId));
+
+    return {
+      kind: "rearmed" as const,
+      nextAt: Date.now() + getRetryDelay(nextAttempt, DISPATCH_RETRY_DELAYS_MS),
+    };
+  });
+
+  if (result.kind === "stale" || result.kind === "already_active") {
+    return result;
+  }
+
+  if (result.kind === "terminal") {
+    await runBestEffortSidecar(context, "clear_dispatch_retry", input.projectId, input.runId, async () => {
+      await setDispatchRetryAt(context, input.runId, null);
+    });
+    try {
+      await setRunDoTerminal(context, result.row, "failed", "dispatch_failed");
+    } catch (error) {
+      context.logger.error("workflow_dispatch_failure_terminalize_failed", {
+        projectId: input.projectId,
+        runId: input.runId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return {
+      kind: "terminal",
+    };
+  }
+
+  await runBestEffortSidecar(context, "set_dispatch_retry", input.projectId, input.runId, async () => {
+    await setDispatchRetryAt(context, input.runId, result.nextAt);
+  });
+  return {
+    kind: "rearmed",
+  };
 };
 
 export const recordRunResolvedCommit = async (

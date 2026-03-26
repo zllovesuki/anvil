@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 
-import { BranchName, DEFAULT_DISPATCH_MODE, DEFAULT_EXECUTION_RUNTIME } from "@/contracts";
+import { BranchName } from "@/contracts";
 import * as sidecarState from "@/worker/durable/project-do/sidecar-state";
 
 import {
@@ -20,7 +20,9 @@ describe("ProjectDO transition invariants", () => {
   describe("queue ordering and capacity", () => {
     it("keeps FIFO order and a single active run per project", async () => {
       const user = await seedUser();
-      const project = await seedProject(user);
+      const project = await seedProject(user, {
+        dispatchMode: "queue",
+      });
       const stub = env.PROJECT_DO.getByName(project.id);
 
       const firstAccepted = await acceptManualRunWithoutAlarm(stub, {
@@ -97,6 +99,7 @@ describe("ProjectDO transition invariants", () => {
       });
       const project = await seedProject(user, {
         projectSlug: "queue-full-project",
+        dispatchMode: "queue",
       });
       const stub = env.PROJECT_DO.getByName(project.id);
 
@@ -297,6 +300,7 @@ describe("ProjectDO transition invariants", () => {
       });
       const project = await seedProject(user, {
         projectSlug: "cancel-project",
+        dispatchMode: "queue",
       });
       const stub = env.PROJECT_DO.getByName(project.id);
 
