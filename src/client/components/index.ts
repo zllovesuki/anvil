@@ -6,6 +6,7 @@ export * from "@/client/components/header";
 export * from "@/client/components/invite-dialog";
 export * from "@/client/components/loading-panel";
 export * from "@/client/components/log-viewer";
+export * from "@/client/components/log-viewer-scroll";
 export * from "@/client/components/project-metadata-card";
 export * from "@/client/components/run-row";
 export * from "@/client/components/status-pill";

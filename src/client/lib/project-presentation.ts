@@ -126,6 +126,19 @@ export const formatDuration = (startedAt: string, finishedAt: string): string =>
   return `${minutes}m ${remainingSeconds}s`;
 };
 
+export const formatRunFailureMessage = (message: string): string => {
+  switch (message) {
+    case "runner_lost":
+      return "The runner stopped unexpectedly before the run could finish.";
+    case "dispatch_failed":
+      return "anvil could not dispatch this run.";
+    case "cancel_cleanup_failed":
+      return "The run stopped, but cleanup did not finish cleanly.";
+    default:
+      return message;
+  }
+};
+
 export const buildProjectSlug = (value: string): string =>
   value
     .trim()

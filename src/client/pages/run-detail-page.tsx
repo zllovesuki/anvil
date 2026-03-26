@@ -6,7 +6,15 @@ import { useAuth } from "@/client/auth";
 import { LoadingPanel, StatusPill, LogViewer, StepRow } from "@/client/components";
 import { Breadcrumbs, Button, Card, ErrorBanner } from "@/client/components/ui";
 import { useLogStream } from "@/client/hooks";
-import { TRIGGER_TYPE_LABELS, formatApiError, formatDuration, formatTimestamp, getApiClient } from "@/client/lib";
+import {
+  TRIGGER_TYPE_LABELS,
+  formatApiError,
+  formatDuration,
+  formatRunFailureMessage,
+  formatTimestamp,
+  getApiClient,
+  mergeLogEventBySeq,
+} from "@/client/lib";
 import { useToast } from "@/client/toast";
 const TERMINAL_STATUSES = new Set(["passed", "failed", "canceled"]);
 export const RunDetailPage = () => {
@@ -151,9 +159,8 @@ export const RunDetailPage = () => {
   // WebSocket log stream
   const handleLogEvent = useCallback((event: LogEvent) => {
     setLogs((prev) => {
-      if (event.seq <= maxSeqRef.current) return prev;
       maxSeqRef.current = event.seq;
-      return [...prev, event];
+      return mergeLogEventBySeq(prev, event);
     });
   }, []);
   const handleStateUpdate = useCallback(
@@ -288,7 +295,7 @@ export const RunDetailPage = () => {
       {currentError ? <ErrorBanner message={currentError} /> : null}
 
       {/* Error message */}
-      {errorMessage ? <ErrorBanner message={errorMessage} /> : null}
+      {errorMessage ? <ErrorBanner message={formatRunFailureMessage(errorMessage)} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]">
         {/* Left column — steps */}

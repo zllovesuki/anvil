@@ -1,8 +1,9 @@
-import { ArrowDown, ChevronDown, ChevronUp, Search, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ChevronDown, ChevronUp, Search, WrapText, X } from "lucide-react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { LogEvent, LogStream } from "@/contracts";
 import { createAnsiProcessor, type AnsiProcessor, type AnsiSpan } from "@/client/lib";
+import { isLogViewerPinnedToLatest } from "@/client/components/log-viewer-scroll";
 
 const STREAM_COLORS: Record<string, string> = {
   stdout: "text-zinc-300",
@@ -25,17 +26,26 @@ const CONNECTION_DOT: Record<string, string> = {
 };
 
 const ALL_STREAMS: readonly LogStream[] = ["stdout", "stderr", "system"];
+const BASE_PADDING_BOTTOM_PX = 16;
+const JUMP_PADDING_BOTTOM_PX = 48;
 
 interface HighlightRange {
   start: number;
   end: number;
-  isCurrent: boolean;
+  matchIndex: number;
 }
 
 interface FilteredEntry {
   log: LogEvent;
   spans: AnsiSpan[];
   index: number;
+}
+
+interface ProcessedLogCache {
+  proc: AnsiProcessor;
+  results: AnsiSpan[][];
+  firstId: string | null;
+  lastId: string | null;
 }
 
 interface MatchPosition {
@@ -60,130 +70,259 @@ const spanStyle = (span: AnsiSpan): React.CSSProperties | undefined => {
   return s;
 };
 
+const canAppendProcessedLogs = (cache: ProcessedLogCache, logs: LogEvent[]) => {
+  if (cache.results.length === 0 || logs.length <= cache.results.length) {
+    return false;
+  }
+
+  if (logs[0]!.id !== cache.firstId) {
+    return false;
+  }
+
+  return logs[cache.results.length - 1]!.id === cache.lastId;
+};
+
 /**
  * Render a single chunk's ANSI spans, optionally splitting them at search
  * highlight boundaries.
  */
-const AnsiLine = ({
-  spans,
-  className,
-  highlights,
-}: {
-  spans: AnsiSpan[];
-  className: string;
-  highlights?: HighlightRange[];
-}) => {
-  // Fast path: no highlights, single unstyled span
-  if (!highlights && spans.length === 1 && isUnstyled(spans[0]!)) {
-    return <span className={className}>{spans[0]!.text}</span>;
-  }
-
-  // No highlights — render spans without splitting
-  if (!highlights) {
-    return (
-      <span className={className}>
-        {spans.map((span, i) => {
-          const s = spanStyle(span);
-          return s ? (
-            <span key={i} style={s}>
-              {span.text}
-            </span>
-          ) : (
-            span.text
-          );
-        })}
-      </span>
-    );
-  }
-
-  // With highlights — split spans at highlight boundaries
-  const elements: React.ReactNode[] = [];
-  let charOffset = 0;
-  let hi = 0; // highlight pointer
-  let key = 0;
-
-  for (const span of spans) {
-    const s = spanStyle(span);
-    const spanEnd = charOffset + span.text.length;
-    let pos = 0; // position within span.text
-
-    while (pos < span.text.length && hi < highlights.length) {
-      const h = highlights[hi]!;
-      const absPos = charOffset + pos;
-
-      // Before highlight start — emit plain segment
-      if (absPos < h.start) {
-        const segEnd = Math.min(span.text.length, h.start - charOffset);
-        const seg = span.text.slice(pos, segEnd);
-        if (seg)
-          elements.push(
-            s ? (
-              <span key={key++} style={s}>
-                {seg}
-              </span>
-            ) : (
-              seg
-            ),
-          );
-        pos = segEnd;
-        continue;
-      }
-
-      // Inside highlight — emit marked segment
-      if (absPos < h.end) {
-        const segEnd = Math.min(span.text.length, h.end - charOffset);
-        const seg = span.text.slice(pos, segEnd);
-        if (seg) {
-          elements.push(
-            <mark
-              key={key++}
-              className={
-                h.isCurrent
-                  ? "rounded-sm bg-amber-400/40 text-inherit ring-1 ring-amber-400/60"
-                  : "rounded-sm bg-amber-500/25 text-inherit"
-              }
-              style={s}
-            >
-              {seg}
-            </mark>,
-          );
-        }
-        pos = segEnd;
-        if (charOffset + pos >= h.end) hi++;
-        continue;
-      }
-
-      // Past this highlight — advance
-      hi++;
+const AnsiLine = memo(
+  function AnsiLine({
+    spans,
+    className,
+    highlights,
+    currentMatchIndex,
+  }: {
+    spans: AnsiSpan[];
+    className: string;
+    highlights?: HighlightRange[];
+    currentMatchIndex?: number;
+  }) {
+    // Fast path: no highlights, single unstyled span
+    if (!highlights && spans.length === 1 && isUnstyled(spans[0]!)) {
+      return <span className={className}>{spans[0]!.text}</span>;
     }
 
-    // Remaining text after all highlights
-    if (pos < span.text.length) {
-      const seg = span.text.slice(pos);
-      elements.push(
-        s ? (
-          <span key={key++} style={s}>
-            {seg}
-          </span>
-        ) : (
-          seg
-        ),
+    // No highlights — render spans without splitting
+    if (!highlights) {
+      return (
+        <span className={className}>
+          {spans.map((span, i) => {
+            const s = spanStyle(span);
+            return s ? (
+              <span key={i} style={s}>
+                {span.text}
+              </span>
+            ) : (
+              span.text
+            );
+          })}
+        </span>
       );
     }
 
-    charOffset = spanEnd;
-  }
+    // With highlights — split spans at highlight boundaries
+    const elements: React.ReactNode[] = [];
+    let charOffset = 0;
+    let hi = 0; // highlight pointer
+    let key = 0;
 
-  return <span className={className}>{elements}</span>;
-};
+    for (const span of spans) {
+      const s = spanStyle(span);
+      const spanEnd = charOffset + span.text.length;
+      let pos = 0; // position within span.text
+
+      while (pos < span.text.length && hi < highlights.length) {
+        const h = highlights[hi]!;
+        const absPos = charOffset + pos;
+
+        // Before highlight start — emit plain segment
+        if (absPos < h.start) {
+          const segEnd = Math.min(span.text.length, h.start - charOffset);
+          const seg = span.text.slice(pos, segEnd);
+          if (seg)
+            elements.push(
+              s ? (
+                <span key={key++} style={s}>
+                  {seg}
+                </span>
+              ) : (
+                seg
+              ),
+            );
+          pos = segEnd;
+          continue;
+        }
+
+        // Inside highlight — emit marked segment
+        if (absPos < h.end) {
+          const segEnd = Math.min(span.text.length, h.end - charOffset);
+          const seg = span.text.slice(pos, segEnd);
+          if (seg) {
+            elements.push(
+              <mark
+                key={key++}
+                className={
+                  h.matchIndex === currentMatchIndex
+                    ? "rounded-sm bg-amber-400/40 text-inherit ring-1 ring-amber-400/60"
+                    : "rounded-sm bg-amber-500/25 text-inherit"
+                }
+                style={s}
+              >
+                {seg}
+              </mark>,
+            );
+          }
+          pos = segEnd;
+          if (charOffset + pos >= h.end) hi++;
+          continue;
+        }
+
+        // Past this highlight — advance
+        hi++;
+      }
+
+      // Remaining text after all highlights
+      if (pos < span.text.length) {
+        const seg = span.text.slice(pos);
+        elements.push(
+          s ? (
+            <span key={key++} style={s}>
+              {seg}
+            </span>
+          ) : (
+            seg
+          ),
+        );
+      }
+
+      charOffset = spanEnd;
+    }
+
+    return <span className={className}>{elements}</span>;
+  },
+  (prev, next) => {
+    if (prev.spans !== next.spans || prev.className !== next.className) return false;
+    if (prev.highlights !== next.highlights) return false;
+    if (!prev.highlights) return true;
+    if (prev.currentMatchIndex === next.currentMatchIndex) return true;
+    const affects = (idx: number | undefined) =>
+      idx !== undefined && prev.highlights!.some((h) => h.matchIndex === idx);
+    return !affects(prev.currentMatchIndex) && !affects(next.currentMatchIndex);
+  },
+);
+
+/** Search bar – owns local input state + debounce; parent only sees the settled query. */
+const SearchBar = memo(function SearchBar({
+  searchActive,
+  matchCount,
+  currentMatchIndex,
+  onQueryChange,
+  onNext,
+  onPrev,
+  onClose,
+}: {
+  searchActive: boolean;
+  matchCount: number;
+  currentMatchIndex: number;
+  onQueryChange: (query: string) => void;
+  onNext: () => void;
+  onPrev: () => void;
+  onClose: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (!query) {
+      onQueryChange("");
+      return;
+    }
+    debounceRef.current = setTimeout(() => onQueryChange(query), 500);
+    return () => clearTimeout(debounceRef.current);
+  }, [query, onQueryChange]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) onPrev();
+        else onNext();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    },
+    [onNext, onPrev, onClose],
+  );
+
+  return (
+    <div
+      role="search"
+      aria-label="Search logs"
+      className="flex items-center gap-1.5 border-t border-zinc-800/40 px-4 py-1.5"
+    >
+      <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Search logs..."
+        className="min-w-0 flex-1 bg-transparent text-xs text-zinc-100 placeholder:text-zinc-600 outline-none"
+        aria-label="Search log text"
+      />
+      {searchActive ? (
+        <span className="shrink-0 text-[11px] tabular-nums text-zinc-500" aria-live="polite">
+          {matchCount > 0 ? `${currentMatchIndex + 1} of ${matchCount}` : "No matches"}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        aria-label="Previous match"
+        onClick={onPrev}
+        disabled={matchCount === 0}
+        className="rounded p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+      >
+        <ChevronUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Next match"
+        onClick={onNext}
+        disabled={matchCount === 0}
+        className="rounded p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Close search"
+        onClick={onClose}
+        className="rounded p-0.5 text-zinc-500 hover:text-zinc-300"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+});
 
 const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: LogEvent[]; logStreamStatus: string }) {
   // -- Refs ----------------------------------------------------------------
   const logContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+  const scrollingToBottomRef = useRef(false);
   const sectionRef = useRef<HTMLElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const matchLineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const paddingBottomRef = useRef(BASE_PADDING_BOTTOM_PX);
 
   // -- Scroll state --------------------------------------------------------
   const [atBottom, setAtBottom] = useState(true);
@@ -191,56 +330,100 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
   const handleScroll = useCallback(() => {
     const container = logContainerRef.current;
     if (!container) return;
-    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+    const isAtBottom = isLogViewerPinnedToLatest({
+      scrollTop: container.scrollTop,
+      clientHeight: container.clientHeight,
+      scrollHeight: container.scrollHeight,
+      paddingBottom: paddingBottomRef.current,
+    });
     setAtBottom(isAtBottom);
-    autoScrollRef.current = isAtBottom;
+
+    if (isAtBottom) {
+      scrollingToBottomRef.current = false;
+      autoScrollRef.current = true;
+      return;
+    }
+
+    if (!scrollingToBottomRef.current) {
+      autoScrollRef.current = false;
+    }
   }, []);
 
   const scrollToBottom = useCallback(() => {
     const container = logContainerRef.current;
     if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    scrollingToBottomRef.current = true;
     autoScrollRef.current = true;
-    setAtBottom(true);
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  const handleScrollTakeover = useCallback(() => {
+    if (!scrollingToBottomRef.current) return;
+    const container = logContainerRef.current;
+    scrollingToBottomRef.current = false;
+    if (!container) {
+      autoScrollRef.current = false;
+      return;
+    }
+
+    const isAtBottom = isLogViewerPinnedToLatest({
+      scrollTop: container.scrollTop,
+      clientHeight: container.clientHeight,
+      scrollHeight: container.scrollHeight,
+      paddingBottom: paddingBottomRef.current,
+    });
+    setAtBottom(isAtBottom);
+    autoScrollRef.current = isAtBottom;
   }, []);
 
   // Auto-scroll on new logs
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = logContainerRef.current;
     if (!container || !autoScrollRef.current) return;
     container.scrollTop = container.scrollHeight;
+    const isAtBottom = isLogViewerPinnedToLatest({
+      scrollTop: container.scrollTop,
+      clientHeight: container.clientHeight,
+      scrollHeight: container.scrollHeight,
+      paddingBottom: paddingBottomRef.current,
+    });
+    setAtBottom(isAtBottom);
+    if (isAtBottom) {
+      scrollingToBottomRef.current = false;
+    }
   }, [logs]);
 
   // -- Incremental ANSI processing -----------------------------------------
-  const processorRef = useRef<{
-    proc: AnsiProcessor;
-    results: AnsiSpan[][];
-    firstId: string | null;
-  }>({ proc: createAnsiProcessor(), results: [], firstId: null });
+  const processorRef = useRef<ProcessedLogCache>({
+    proc: createAnsiProcessor(),
+    results: [],
+    firstId: null,
+    lastId: null,
+  });
 
-  const processedLogs = useMemo(() => {
-    const cache = processorRef.current;
-
-    if (logs.length === 0) {
-      processorRef.current = { proc: createAnsiProcessor(), results: [], firstId: null };
-      return processorRef.current.results;
+  // Incremental processing — imperative ref update (idempotent, StrictMode-safe)
+  const cache = processorRef.current;
+  if (logs.length === 0) {
+    if (cache.results.length > 0) {
+      processorRef.current = { proc: createAnsiProcessor(), results: [], firstId: null, lastId: null };
     }
-
-    const isAppend = cache.results.length > 0 && logs.length > cache.results.length && logs[0]!.id === cache.firstId;
-
-    if (isAppend) {
-      for (let i = cache.results.length; i < logs.length; i++) {
-        cache.results.push(cache.proc.feed(logs[i]!.chunk));
-      }
-      return cache.results;
+  } else if (
+    cache.firstId === logs[0]!.id &&
+    cache.lastId === logs[logs.length - 1]!.id &&
+    cache.results.length === logs.length
+  ) {
+    // Already fully processed (double-invocation or unchanged logs) — no-op
+  } else if (canAppendProcessedLogs(cache, logs)) {
+    for (let i = cache.results.length; i < logs.length; i++) {
+      cache.results.push(cache.proc.feed(logs[i]!.chunk));
     }
-
-    // Full replacement
+    cache.lastId = logs[logs.length - 1]!.id;
+  } else {
     const proc = createAnsiProcessor();
     const results = logs.map((log) => proc.feed(log.chunk));
-    processorRef.current = { proc, results, firstId: logs[0]!.id };
-    return results;
-  }, [logs]);
+    processorRef.current = { proc, results, firstId: logs[0]!.id, lastId: logs[logs.length - 1]!.id };
+  }
+  const processedLogs = processorRef.current.results;
 
   // -- Stream filtering ----------------------------------------------------
   const [visibleStreams, setVisibleStreams] = useState<Set<LogStream>>(new Set(ALL_STREAMS));
@@ -270,6 +453,9 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
     return entries;
   }, [logs, processedLogs, visibleStreams]);
 
+  // -- Text wrap -----------------------------------------------------------
+  const [textWrap, setTextWrap] = useState(true);
+
   // -- Search --------------------------------------------------------------
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -280,7 +466,9 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
     const matches: MatchPosition[] = [];
     const needle = searchQuery.toLowerCase();
     for (let ei = 0; ei < filteredEntries.length; ei++) {
-      const text = filteredEntries[ei]!.log.chunk.toLowerCase();
+      const text = filteredEntries[ei]!.spans.map((s) => s.text)
+        .join("")
+        .toLowerCase();
       let pos = 0;
       while (pos <= text.length - needle.length) {
         const idx = text.indexOf(needle, pos);
@@ -308,12 +496,13 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
     if (!match) return;
     const el = matchLineRefs.current.get(match.entryIndex);
     if (el) {
+      scrollingToBottomRef.current = false;
       el.scrollIntoView({ block: "nearest", behavior: "smooth" });
       autoScrollRef.current = false;
     }
   }, [currentMatchIndex, searchMatches]);
 
-  // Highlight map: entryIndex → HighlightRange[]
+  // Highlight map: entryIndex → HighlightRange[] (stable across match navigation)
   const lineHighlights = useMemo(() => {
     if (!searchQuery || searchMatches.length === 0) return null;
     const map = new Map<number, HighlightRange[]>();
@@ -324,10 +513,10 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
         list = [];
         map.set(m.entryIndex, list);
       }
-      list.push({ start: m.charStart, end: m.charEnd, isCurrent: mi === currentMatchIndex });
+      list.push({ start: m.charStart, end: m.charEnd, matchIndex: mi });
     }
     return map;
-  }, [searchQuery, searchMatches, currentMatchIndex]);
+  }, [searchQuery, searchMatches]);
 
   const goToNextMatch = useCallback(() => {
     if (searchMatches.length === 0) return;
@@ -345,27 +534,13 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
     setSearchOpen(false);
     setSearchQuery("");
     setCurrentMatchIndex(0);
+    matchLineRefs.current.clear();
   }, []);
 
-  const handleSearchKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (e.shiftKey) goToPrevMatch();
-        else goToNextMatch();
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeSearch();
-      }
-    },
-    [goToNextMatch, goToPrevMatch, closeSearch],
-  );
-
-  // Focus input when search opens
-  useEffect(() => {
-    if (searchOpen) searchInputRef.current?.focus();
-  }, [searchOpen]);
+  const handleQueryChange = useCallback((q: string) => {
+    setSearchQuery(q);
+    setCurrentMatchIndex(0);
+  }, []);
 
   // Ctrl/Cmd+F shortcut (guarded to viewport)
   useEffect(() => {
@@ -385,6 +560,7 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
 
   // -- Render --------------------------------------------------------------
   const showJumpButton = !atBottom && filteredEntries.length > 0;
+  paddingBottomRef.current = showJumpButton ? JUMP_PADDING_BOTTOM_PX : BASE_PADDING_BOTTOM_PX;
 
   return (
     <section
@@ -436,6 +612,17 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
             </button>
           ) : null}
 
+          {/* Wrap toggle */}
+          <button
+            type="button"
+            aria-pressed={textWrap}
+            aria-label="Toggle text wrap"
+            onClick={() => setTextWrap((v) => !v)}
+            className={`rounded p-1 ${textWrap ? "text-zinc-300" : "text-zinc-500"} hover:text-zinc-300`}
+          >
+            <WrapText className="h-3.5 w-3.5" />
+          </button>
+
           {/* Connection status */}
           <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
             <span className={`h-2 w-2 rounded-full ${CONNECTION_DOT[logStreamStatus] ?? "bg-zinc-500"}`} />
@@ -445,57 +632,15 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
 
         {/* Search bar (separate row when open) */}
         {searchOpen ? (
-          <div
-            role="search"
-            aria-label="Search logs"
-            className="flex items-center gap-1.5 border-t border-zinc-800/40 px-4 py-1.5"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentMatchIndex(0);
-              }}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search logs..."
-              className="min-w-0 flex-1 bg-transparent text-xs text-zinc-100 placeholder:text-zinc-600 outline-none"
-              aria-label="Search log text"
-            />
-            {searchQuery ? (
-              <span className="shrink-0 text-[11px] tabular-nums text-zinc-500" aria-live="polite">
-                {searchMatches.length > 0 ? `${currentMatchIndex + 1} of ${searchMatches.length}` : "No matches"}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Previous match"
-              onClick={goToPrevMatch}
-              disabled={searchMatches.length === 0}
-              className="rounded p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
-            >
-              <ChevronUp className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next match"
-              onClick={goToNextMatch}
-              disabled={searchMatches.length === 0}
-              className="rounded p-0.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Close search"
-              onClick={closeSearch}
-              className="rounded p-0.5 text-zinc-500 hover:text-zinc-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <SearchBar
+            searchActive={searchQuery !== ""}
+            matchCount={searchMatches.length}
+            currentMatchIndex={currentMatchIndex}
+            onQueryChange={handleQueryChange}
+            onNext={goToNextMatch}
+            onPrev={goToPrevMatch}
+            onClose={closeSearch}
+          />
         ) : null}
       </div>
 
@@ -504,7 +649,10 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
         <div
           ref={logContainerRef}
           onScroll={handleScroll}
-          className={`h-full overflow-y-auto p-4 font-mono text-xs leading-5 ${showJumpButton ? "pb-12" : ""}`}
+          onPointerDown={handleScrollTakeover}
+          onTouchStart={handleScrollTakeover}
+          onWheel={handleScrollTakeover}
+          className={`h-full overflow-auto p-4 font-mono text-xs leading-5 ${showJumpButton ? "pb-12" : ""}`}
         >
           {filteredEntries.length === 0 ? (
             <p className="text-zinc-600">
@@ -514,17 +662,22 @@ const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: Log
             filteredEntries.map((entry, i) => (
               <div
                 key={entry.log.id}
-                ref={(el) => {
-                  if (el) matchLineRefs.current.set(i, el);
-                  else matchLineRefs.current.delete(i);
-                }}
-                className="flex gap-3"
+                ref={
+                  searchOpen
+                    ? (el: HTMLDivElement | null) => {
+                        if (el) matchLineRefs.current.set(i, el);
+                        else matchLineRefs.current.delete(i);
+                      }
+                    : undefined
+                }
+                className={`flex gap-3${textWrap ? " min-w-0" : " whitespace-nowrap"}`}
               >
                 <span className="w-8 shrink-0 select-none text-right text-zinc-600">{entry.log.seq}</span>
                 <AnsiLine
                   spans={entry.spans}
-                  className={STREAM_COLORS[entry.log.stream] ?? "text-zinc-300"}
+                  className={`${STREAM_COLORS[entry.log.stream] ?? "text-zinc-300"}${textWrap ? " break-all" : ""}`}
                   highlights={lineHighlights?.get(i)}
+                  currentMatchIndex={currentMatchIndex}
                 />
               </div>
             ))
