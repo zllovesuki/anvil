@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "types:generate": "wrangler types --env-file .dev.vars.example",
-    "typecheck": "npm run types:generate && tsc --noEmit",
+    "typecheck": "npm run types:generate && tsc -p tests/tsconfig.json --noEmit",
     "db:generate:d1": "drizzle-kit generate --config=drizzle-d1.config.ts",
     "db:generate:project-do": "drizzle-kit generate --config=drizzle-project-do.config.ts",
     "db:generate:run-do": "drizzle-kit generate --config=drizzle-run-do.config.ts",
