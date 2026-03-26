@@ -1,5 +1,5 @@
 import { ArrowDown, ChevronDown, ChevronUp, Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { LogEvent, LogStream } from "@/contracts";
 import { createAnsiProcessor, type AnsiProcessor, type AnsiSpan } from "@/client/lib";
@@ -177,7 +177,7 @@ const AnsiLine = ({
   return <span className={className}>{elements}</span>;
 };
 
-const LogViewer = ({ logs, logStreamStatus }: { logs: LogEvent[]; logStreamStatus: string }) => {
+const LogViewer = memo(function LogViewer({ logs, logStreamStatus }: { logs: LogEvent[]; logStreamStatus: string }) {
   // -- Refs ----------------------------------------------------------------
   const logContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -546,6 +546,6 @@ const LogViewer = ({ logs, logStreamStatus }: { logs: LogEvent[]; logStreamStatu
       </div>
     </section>
   );
-};
+});
 
 export { LogViewer };

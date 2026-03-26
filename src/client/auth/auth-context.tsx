@@ -1,8 +1,9 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import type { LoginRequest, UserSummary } from "@/contracts";
-import { ApiError } from "@/client/lib/api-contract";
 import {
+  ApiError,
   type AuthMode,
+  SESSION_EXPIRED_EVENT,
   clearStoredBookmark,
   clearStoredSessionId,
   getEffectiveAuthMode,
@@ -14,7 +15,6 @@ import {
   setStoredSessionId,
 } from "@/client/lib";
 import { useToast } from "@/client/toast";
-import { SESSION_EXPIRED_EVENT } from "@/client/lib/live-api-request";
 
 interface StartupErrorState {
   code: string;
