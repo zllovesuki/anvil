@@ -2,7 +2,7 @@ import { vi } from "vitest";
 
 import { type CommitSha as CommitShaType, ProjectId, RunId, UnixTimestampMs } from "@/contracts";
 import { type ProjectRunStatus, type RecordRunResolvedCommitResult, expectTrusted } from "@/worker/contracts";
-import type { RunExecutionContext } from "@/worker/queue/run-execution-context";
+import type { RunExecutionContext } from "@/worker/dispatch/shared/run-execution-context";
 
 import {
   createQueueProjectControlStub,
@@ -12,7 +12,7 @@ import {
   createQueueScope,
   createQueueState,
   createQueueLeaseStub,
-} from "./queue";
+} from "./dispatch/shared";
 
 type RunEnvironmentHarnessContext = Pick<
   RunExecutionContext,
@@ -50,6 +50,7 @@ export const createHarness = ({
   projectIdValue,
   runIdValue,
   snapshotCommitSha,
+  runMetaCommitSha = snapshotCommitSha,
   recordRunResolvedCommitResult = { kind: "applied" },
   configContent = INVALID_REPO_CONFIG,
   execImpl,
@@ -57,6 +58,7 @@ export const createHarness = ({
   projectIdValue: string;
   runIdValue: string;
   snapshotCommitSha: CommitShaType | null;
+  runMetaCommitSha?: CommitShaType | null;
   recordRunResolvedCommitResult?: RecordRunResolvedCommitResult;
   configContent?: string;
   execImpl: (command: string) => Promise<ExecResult> | ExecResult;
@@ -121,6 +123,19 @@ export const createHarness = ({
         }),
     }),
     runStore: createQueueRunStoreStub({
+      getMeta: vi.fn(async () => ({
+        runId,
+        projectId,
+        status: "queued" as const,
+        triggerType: "manual" as const,
+        branch: scope.snapshot.branch,
+        commitSha: runMetaCommitSha,
+        currentStep: null,
+        startedAt: null,
+        finishedAt: null,
+        exitCode: null,
+        errorMessage: null,
+      })),
       replaceSteps,
     }),
     runtime: createQueueRunRuntimeStub({
@@ -137,11 +152,13 @@ export const createHarness = ({
 
   return {
     context,
+    checkoutSession,
     events,
     projectId,
     recordRunResolvedCommit,
     replaceSteps,
     runId,
+    runSession,
     sandbox,
   };
 };

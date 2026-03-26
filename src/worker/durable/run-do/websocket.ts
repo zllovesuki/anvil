@@ -7,8 +7,7 @@ import type { RunLogRecord } from "@/worker/contracts";
 
 import { listRunLogs } from "./logs";
 import type { RunDb } from "./repo";
-import { getRunMeta } from "./repo/meta";
-import { listRunSteps } from "./repo/steps";
+import { getRunMeta, listRunSteps } from "./repo/index";
 
 export interface RunLogSocketAttachment {
   runId: RunId;

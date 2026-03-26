@@ -4,8 +4,10 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "lib": ["ES2023", "WebWorker", "DOM", "DOM.Iterable"],
-    "paths": { "@/*": ["./src/*"] },
+    "lib": ["ES2023", "ESNext.Disposable", "WebWorker", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,

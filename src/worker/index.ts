@@ -1,5 +1,5 @@
 import { Sandbox } from "@cloudflare/sandbox";
-import { handleQueueBatch } from "@/worker/queue/consumer";
+import { handleQueueBatch } from "@/worker/dispatch/queue/consumer";
 import { ProjectDO, RunDO } from "@/worker/durable";
 import { app } from "@/worker/router";
 import type { RunQueueMessage } from "@/worker/contracts";
