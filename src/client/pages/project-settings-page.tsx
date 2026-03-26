@@ -1,4 +1,4 @@
-import type { ProjectSummary } from "@/contracts";
+import type { DispatchMode, ProjectConfigSummary } from "@/contracts";
 import { Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -14,6 +14,7 @@ interface SettingsFormState {
   defaultBranch: string;
   configPath: string;
   repoToken: string;
+  dispatchMode: DispatchMode;
 }
 
 export const ProjectSettingsPage = () => {
@@ -22,7 +23,7 @@ export const ProjectSettingsPage = () => {
   const { canSelectMode, mode } = useAuth();
   const { pushToast } = useToast();
 
-  const [project, setProject] = useState<ProjectSummary | null>(null);
+  const [project, setProject] = useState<ProjectConfigSummary | null>(null);
   const [form, setForm] = useState<SettingsFormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export const ProjectSettingsPage = () => {
         defaultBranch: detail.project.defaultBranch,
         configPath: detail.project.configPath,
         repoToken: "",
+        dispatchMode: detail.project.dispatchMode,
       });
     } catch (reason) {
       if (requestId !== requestIdRef.current) return;
@@ -81,6 +83,7 @@ export const ProjectSettingsPage = () => {
     if (form.defaultBranch !== project.defaultBranch) payload.defaultBranch = form.defaultBranch;
     if (form.configPath !== project.configPath) payload.configPath = form.configPath;
     if (form.repoToken) payload.repoToken = form.repoToken;
+    if (form.dispatchMode !== project.dispatchMode) payload.dispatchMode = form.dispatchMode;
 
     if (Object.keys(payload).length === 0) {
       pushToast({ tone: "success", title: "No changes", message: "Nothing to update." });
@@ -131,14 +134,14 @@ export const ProjectSettingsPage = () => {
         ]}
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="space-y-5">
-          <PageHeader
-            label="Project Settings"
-            title="Update project"
-            description="Change the project name, repository URL, default branch, config path, or repository token."
-          />
+      <PageHeader
+        label="Project Settings"
+        title="Update project"
+        description="Change the project name, repository URL, default branch, config path, or repository token."
+      />
 
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div>
           <Card>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -220,6 +223,38 @@ export const ProjectSettingsPage = () => {
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Repository host</p>
             <p className="mt-2 text-lg font-semibold text-zinc-100">
               {form.repoUrl ? inferRepositoryProvider(form.repoUrl) : "not set"}
+            </p>
+          </Card>
+
+          <Card className="p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Dispatch</p>
+            <div
+              className="mt-2 flex rounded-lg border border-zinc-800/70 bg-zinc-900/80 p-0.5"
+              role="radiogroup"
+              aria-label="Dispatch mode"
+            >
+              {(["queue", "workflows"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.dispatchMode === option}
+                  className={[
+                    "flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors",
+                    form.dispatchMode === option
+                      ? "bg-accent-500/15 text-accent-300"
+                      : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-200",
+                  ].join(" ")}
+                  onClick={() => updateField("dispatchMode", option)}
+                >
+                  {option === "queue" ? "Queue" : "Workflows"}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2.5 text-xs leading-relaxed text-zinc-500">
+              {form.dispatchMode === "queue"
+                ? "Runs are dispatched via Cloudflare Queues with at-least-once delivery."
+                : "Runs use Cloudflare Workflows for durable execution with automatic retries."}
             </p>
           </Card>
 

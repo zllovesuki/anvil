@@ -6,6 +6,7 @@ import {
   InviteId,
   OwnerSlug,
   type PendingRunSummary,
+  type ProjectConfigSummary,
   ProjectId,
   type ProjectDetail,
   ProjectSlug,
@@ -52,6 +53,10 @@ interface ProjectSummarySource {
   updatedAt: number;
 }
 
+interface ProjectConfigSummarySource extends ProjectSummarySource {
+  dispatchMode: "queue" | "workflows";
+}
+
 const toIso = (value: number | null) => nullableIsoDateTimeFromTimestamp(value);
 
 export const serializeUserSummary = (user: UserRow): UserSummary => ({
@@ -85,6 +90,14 @@ export const serializeProjectSummary = (
   createdAt: isoDateTimeFromTimestamp(project.createdAt),
   updatedAt: isoDateTimeFromTimestamp(project.updatedAt),
   lastRunStatus,
+});
+
+export const serializeProjectConfigSummary = (
+  project: ProjectConfigSummarySource,
+  lastRunStatus: RunStatus | null,
+): ProjectConfigSummary => ({
+  ...serializeProjectSummary(project, lastRunStatus),
+  dispatchMode: project.dispatchMode,
 });
 
 export const serializePendingRunSummary = (pendingRun: PendingRunState): PendingRunSummary => ({
@@ -153,12 +166,12 @@ export const serializeLogEvent = (event: RunLogRecord): LogEvent => ({
 });
 
 export const serializeProjectDetail = (detail: {
-  project: ProjectSummarySource;
+  project: ProjectConfigSummarySource;
   lastRunStatus: RunStatus | null;
   activeRun: RunSummary | null;
   pendingRuns: PendingRunSummary[];
 }): ProjectDetail => ({
-  project: serializeProjectSummary(detail.project, detail.lastRunStatus),
+  project: serializeProjectConfigSummary(detail.project, detail.lastRunStatus),
   activeRun: detail.activeRun,
   pendingRuns: detail.pendingRuns,
 });

@@ -13,6 +13,7 @@ import type {
   AcceptInviteRequest,
   CreateProjectRequest,
   CreateWebhookRequest,
+  DispatchMode,
   GetProjectRunsResponse,
   GetProjectWebhooksResponse,
   LoginRequest,
@@ -62,6 +63,10 @@ export type IndexedRun = GetProjectRunsResponse["runs"][number];
 export type RunId = TriggerRunAcceptedResponse["runId"];
 export type WebhookSummary = GetProjectWebhooksResponse["webhooks"][number];
 export type WebhookDelivery = WebhookSummary["recentDeliveries"][number];
+
+interface CreateProjectOptions {
+  dispatchMode?: DispatchMode;
+}
 
 export interface IntegrationContext {
   tempDir: string;
@@ -374,13 +379,19 @@ export const login = async (baseUrl: string, credentials: OperatorCredentials): 
   });
 };
 
-export const createProject = async (baseUrl: string, sessionId: SessionId, name: string): Promise<ProjectRecord> => {
+export const createProject = async (
+  baseUrl: string,
+  sessionId: SessionId,
+  name: string,
+  options: CreateProjectOptions = {},
+): Promise<ProjectRecord> => {
   const body = {
     projectSlug: ProjectSlug.assertDecode(`queue-${slugFragment()}`),
     name,
     repoUrl: FIXTURE_REPO_URL,
     defaultBranch: FIXTURE_DEFAULT_BRANCH,
     configPath: FIXTURE_CONFIG_PATH,
+    dispatchMode: options.dispatchMode,
   } satisfies CreateProjectRequest;
 
   const response = await apiFetch<ProjectResponse>(baseUrl, "/api/private/projects", {

@@ -10,6 +10,7 @@ import {
   RunStatus,
   UserId,
 } from "@/contracts/common";
+import { DispatchMode } from "@/contracts/execution/dispatch";
 import { RunSummary } from "@/contracts/run";
 
 export const CreateProjectRequest = eg.exactStrict(
@@ -19,6 +20,7 @@ export const CreateProjectRequest = eg.exactStrict(
     repoUrl: eg.string,
     defaultBranch: BranchName,
     configPath: eg.string.optional,
+    dispatchMode: DispatchMode.optional,
     repoToken: eg.union([eg.string, eg.null]).optional,
   }),
 );
@@ -30,6 +32,7 @@ export const UpdateProjectRequest = eg.exactStrict(
     repoUrl: eg.string.optional,
     defaultBranch: BranchName.optional,
     configPath: eg.string.optional,
+    dispatchMode: DispatchMode.optional,
     repoToken: eg.union([eg.string, eg.null]).optional,
   }),
 );
@@ -52,6 +55,24 @@ export const ProjectSummary = eg.exactStrict(
 );
 export type ProjectSummary = TypeFromCodec<typeof ProjectSummary>;
 
+export const ProjectConfigSummary = eg.exactStrict(
+  eg.object({
+    id: ProjectId,
+    ownerUserId: UserId,
+    ownerSlug: OwnerSlug,
+    projectSlug: ProjectSlug,
+    name: eg.string,
+    repoUrl: eg.string,
+    defaultBranch: BranchName,
+    configPath: eg.string,
+    dispatchMode: DispatchMode,
+    createdAt: IsoDateTime,
+    updatedAt: IsoDateTime,
+    lastRunStatus: eg.union([RunStatus, eg.null]),
+  }),
+);
+export type ProjectConfigSummary = TypeFromCodec<typeof ProjectConfigSummary>;
+
 export const GetProjectsResponse = eg.exactStrict(
   eg.object({
     projects: eg.array(ProjectSummary),
@@ -61,7 +82,7 @@ export type GetProjectsResponse = TypeFromCodec<typeof GetProjectsResponse>;
 
 export const ProjectResponse = eg.exactStrict(
   eg.object({
-    project: ProjectSummary,
+    project: ProjectConfigSummary,
   }),
 );
 export type ProjectResponse = TypeFromCodec<typeof ProjectResponse>;
@@ -77,7 +98,7 @@ export type PendingRunSummary = TypeFromCodec<typeof PendingRunSummary>;
 
 export const ProjectDetail = eg.exactStrict(
   eg.object({
-    project: ProjectSummary,
+    project: ProjectConfigSummary,
     activeRun: eg.union([RunSummary, eg.null]),
     pendingRuns: eg.array(PendingRunSummary),
   }),

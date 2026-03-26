@@ -1,5 +1,6 @@
 import { ApiError } from "@/client/lib/api-contract";
 import { getStoredSessionId, readStoredString, setStoredBookmark, writeStoredString } from "@/client/lib/storage";
+import { DEFAULT_DISPATCH_MODE } from "@/contracts";
 import type { MockState } from "./types";
 import { seedProjects, seedRuns, seedUser, seedWebhooks } from "./seed-data";
 import { buildMockDeliveries } from "./builders";
@@ -43,6 +44,13 @@ export const loadState = (): MockState => {
     if (!Array.isArray(state.runs)) state.runs = [];
     if (!Array.isArray(state.webhooks)) {
       state.webhooks = seedWebhooks.filter((w) => state.projects.some((p) => p.id === w.projectId));
+    }
+
+    // Backfill dispatchMode for projects that predate the field
+    for (const project of state.projects) {
+      if (!project.dispatchMode) {
+        project.dispatchMode = DEFAULT_DISPATCH_MODE;
+      }
     }
 
     // Backfill mock deliveries for webhooks that have none

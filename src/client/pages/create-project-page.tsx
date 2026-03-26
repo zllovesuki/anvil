@@ -6,6 +6,8 @@ import { Badge, Breadcrumbs, Button, Card, ErrorBanner, Input, PageHeader } from
 import { buildProjectSlug, formatApiError, getApiClient, inferRepositoryProvider } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
+import { DEFAULT_DISPATCH_MODE, type DispatchMode } from "@/contracts";
+
 interface ProjectFormState {
   name: string;
   projectSlug: string;
@@ -13,6 +15,7 @@ interface ProjectFormState {
   defaultBranch: string;
   configPath: string;
   repoToken: string;
+  dispatchMode: DispatchMode;
 }
 
 const initialFormState: ProjectFormState = {
@@ -22,6 +25,7 @@ const initialFormState: ProjectFormState = {
   defaultBranch: "main",
   configPath: ".anvil.yml",
   repoToken: "",
+  dispatchMode: DEFAULT_DISPATCH_MODE,
 };
 
 export const CreateProjectPage = () => {
@@ -59,6 +63,7 @@ export const CreateProjectPage = () => {
       defaultBranch: "main",
       configPath: ".anvil.yml",
       repoToken: "",
+      dispatchMode: DEFAULT_DISPATCH_MODE,
     });
     setSlugTouched(true);
   };
@@ -67,14 +72,14 @@ export const CreateProjectPage = () => {
     <div className="animate-slide-up space-y-5">
       <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "New Project" }]} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="space-y-5">
-          <PageHeader
-            label="Project Setup"
-            title="Create a project"
-            description="Connect a repository over HTTPS, choose the default branch, and point anvil at the repo-defined config file."
-          />
+      <PageHeader
+        label="Project Setup"
+        title="Create a project"
+        description="Connect a repository over HTTPS, choose the default branch, and point anvil at the repo-defined config file."
+      />
 
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div>
           <Card>
             <form
               className="space-y-4"
@@ -91,6 +96,7 @@ export const CreateProjectPage = () => {
                     defaultBranch: form.defaultBranch,
                     configPath: form.configPath || undefined,
                     repoToken: form.repoToken ? form.repoToken : undefined,
+                    dispatchMode: form.dispatchMode,
                   })
                   .then((response) => {
                     pushToast({
@@ -198,6 +204,38 @@ export const CreateProjectPage = () => {
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Repository host</p>
             <p className="mt-2 text-lg font-semibold text-zinc-100">
               {form.repoUrl ? inferRepositoryProvider(form.repoUrl) : "not set"}
+            </p>
+          </Card>
+
+          <Card className="p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Dispatch</p>
+            <div
+              className="mt-2 flex rounded-lg border border-zinc-800/70 bg-zinc-900/80 p-0.5"
+              role="radiogroup"
+              aria-label="Dispatch mode"
+            >
+              {(["queue", "workflows"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.dispatchMode === option}
+                  className={[
+                    "flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors",
+                    form.dispatchMode === option
+                      ? "bg-accent-500/15 text-accent-300"
+                      : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-200",
+                  ].join(" ")}
+                  onClick={() => updateField("dispatchMode", option)}
+                >
+                  {option === "queue" ? "Queue" : "Workflows"}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2.5 text-xs leading-relaxed text-zinc-500">
+              {form.dispatchMode === "queue"
+                ? "Runs are dispatched via Cloudflare Queues with at-least-once delivery."
+                : "Runs use Cloudflare Workflows for durable execution with automatic retries."}
             </p>
           </Card>
 

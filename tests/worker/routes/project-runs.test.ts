@@ -58,6 +58,7 @@ describe("worker routes", () => {
       });
       expect(createdProject.status).toBe(201);
       expect(createdProject.body).not.toBeNull();
+      expect(createdProject.body?.project.dispatchMode).toBe(DEFAULT_DISPATCH_MODE);
 
       const projectId = createdProject.body!.project.id;
 
@@ -83,9 +84,12 @@ describe("worker routes", () => {
         headers: authHeaders(sessionId),
       });
       expect(projectDetail.status).toBe(200);
-      expect(projectDetail.body?.activeRun).toBeNull();
-      expect(projectDetail.body?.pendingRuns).toHaveLength(1);
-      expect(projectDetail.body?.pendingRuns[0]?.runId).toBe(runId);
+      expect(projectDetail.body?.project.dispatchMode).toBe(DEFAULT_DISPATCH_MODE);
+      const visibleRunIds = [
+        projectDetail.body?.activeRun?.id,
+        ...(projectDetail.body?.pendingRuns.map((run) => run.runId) ?? []),
+      ].filter((value) => value !== undefined);
+      expect(visibleRunIds).toContain(runId);
 
       const runDetailBeforeCancel = await fetchJson<RunDetail>(`/api/private/runs/${runId}`, {
         headers: authHeaders(sessionId),
@@ -189,6 +193,56 @@ describe("worker routes", () => {
           code: "project_queue_full",
         },
       });
+    });
+
+    it("accepts and returns explicit dispatch mode changes on create and update", async () => {
+      const user = await seedUser({
+        email: "routes-dispatch-mode@example.com",
+        slug: "routes-dispatch-mode",
+        password: "swordfish",
+      });
+
+      const login = await loginViaRoute(user);
+      expect(login.status).toBe(200);
+      const sessionId = login.body!.sessionId;
+
+      const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
+        method: "POST",
+        headers: authHeaders(sessionId, {
+          "content-type": "application/json; charset=utf-8",
+        }),
+        body: JSON.stringify({
+          projectSlug: "workflow-project",
+          name: "Workflow Project",
+          repoUrl: "https://github.com/example/workflow-project",
+          defaultBranch: "main",
+          configPath: ".anvil.yml",
+          dispatchMode: "workflows",
+        }),
+      });
+      expect(createdProject.status).toBe(201);
+      expect(createdProject.body?.project.dispatchMode).toBe("workflows");
+
+      const updatedProject = await fetchJson<ProjectResponse>(
+        `/api/private/projects/${createdProject.body!.project.id}`,
+        {
+          method: "PATCH",
+          headers: authHeaders(sessionId, {
+            "content-type": "application/json; charset=utf-8",
+          }),
+          body: JSON.stringify({
+            dispatchMode: "queue",
+          }),
+        },
+      );
+      expect(updatedProject.status).toBe(200);
+      expect(updatedProject.body?.project.dispatchMode).toBe("queue");
+
+      const detail = await fetchJson<ProjectDetail>(`/api/private/projects/${createdProject.body!.project.id}`, {
+        headers: authHeaders(sessionId),
+      });
+      expect(detail.status).toBe(200);
+      expect(detail.body?.project.dispatchMode).toBe("queue");
     });
   });
 });

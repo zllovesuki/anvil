@@ -4,6 +4,7 @@ import {
   CreateInviteRequest,
   CreateInviteResponse,
   CreateProjectRequest,
+  DEFAULT_DISPATCH_MODE,
   UpdateProjectRequest,
   GetMeResponse,
   GetProjectRunsResponse,
@@ -44,6 +45,7 @@ import {
   persistState,
   requireSession,
 } from "./mock/index";
+import type { MockProjectRecord } from "./mock/types";
 const MOCK_INVITE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const createMockApiClient = (): ApiClient => ({
   async checkAppConfig() {},
@@ -109,7 +111,7 @@ export const createMockApiClient = (): ApiClient => ({
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
     persistState(state);
     return GetProjectsResponse.assertDecode({
-      projects,
+      projects: projects.map(({ dispatchMode: _, ...rest }) => rest),
     });
   },
   async acceptInvite(payload) {
@@ -206,23 +208,30 @@ export const createMockApiClient = (): ApiClient => ({
       throw new ApiError(409, "project_slug_taken", "Project slug is already in use for this owner.");
     }
     const timestamp = nowIso();
-    const project = ProjectSummary.assertDecode({
-      id: randomEntityId("prj"),
-      ownerUserId: user.id,
-      ownerSlug: user.slug,
-      projectSlug,
-      name: body.name.trim(),
-      repoUrl: body.repoUrl.trim(),
-      defaultBranch: body.defaultBranch.trim(),
-      configPath: body.configPath?.trim() || ".anvil.yml",
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      lastRunStatus: null,
-    });
+    const dispatchMode = body.dispatchMode ?? DEFAULT_DISPATCH_MODE;
+    const project: MockProjectRecord = {
+      ...ProjectSummary.assertDecode({
+        id: randomEntityId("prj"),
+        ownerUserId: user.id,
+        ownerSlug: user.slug,
+        projectSlug,
+        name: body.name.trim(),
+        repoUrl: body.repoUrl.trim(),
+        defaultBranch: body.defaultBranch.trim(),
+        configPath: body.configPath?.trim() || ".anvil.yml",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        lastRunStatus: null,
+      }),
+      dispatchMode,
+    };
     state.projects.push(project);
     persistState(state);
     return ProjectResponse.assertDecode({
-      project,
+      project: {
+        ...project,
+        dispatchMode,
+      },
     });
   },
   async updateProject(projectId, payload) {
@@ -238,10 +247,14 @@ export const createMockApiClient = (): ApiClient => ({
     if (body.defaultBranch !== undefined)
       project.defaultBranch = body.defaultBranch.trim() as typeof project.defaultBranch;
     if (body.configPath !== undefined) project.configPath = body.configPath.trim();
+    if (body.dispatchMode !== undefined) project.dispatchMode = body.dispatchMode;
     project.updatedAt = nowIso() as typeof project.updatedAt;
     persistState(state);
     return ProjectResponse.assertDecode({
-      project,
+      project: {
+        ...project,
+        dispatchMode: project.dispatchMode ?? DEFAULT_DISPATCH_MODE,
+      },
     });
   },
   async getProjectDetail(projectId) {
@@ -259,7 +272,10 @@ export const createMockApiClient = (): ApiClient => ({
       .map((run) => ({ runId: run.id, branch: run.branch, queuedAt: run.queuedAt }));
     persistState(state);
     return ProjectDetail.assertDecode({
-      project,
+      project: {
+        ...project,
+        dispatchMode: project.dispatchMode ?? DEFAULT_DISPATCH_MODE,
+      },
       activeRun,
       pendingRuns,
     });

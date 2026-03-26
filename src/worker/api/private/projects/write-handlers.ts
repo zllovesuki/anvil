@@ -17,7 +17,7 @@ import {
   listLatestRunStatusByProjectIds,
 } from "@/worker/db/d1/repositories";
 import { HttpError, parseJson } from "@/worker/http";
-import { serializeProjectSummary } from "@/worker/presentation/serializers";
+import { serializeProjectConfigSummary } from "@/worker/presentation/serializers";
 import { encryptSecret } from "@/worker/security/secrets";
 import { generateDurableEntityId } from "@/worker/services";
 import { queueProjectReconciliation } from "@/worker/api/private/reconciliation";
@@ -79,7 +79,7 @@ export const handleCreateProject = async (c: AppContext): Promise<Response> => {
       defaultBranch: project.defaultBranch,
       configPath: project.configPath,
       encryptedRepoToken: encryptedToken,
-      dispatchMode: DEFAULT_DISPATCH_MODE,
+      dispatchMode: payload.dispatchMode ?? DEFAULT_DISPATCH_MODE,
       executionRuntime: DEFAULT_EXECUTION_RUNTIME,
       createdAt: now,
       updatedAt: now,
@@ -104,7 +104,13 @@ export const handleCreateProject = async (c: AppContext): Promise<Response> => {
   });
 
   const response: ProjectResponse = {
-    project: serializeProjectSummary(project, null),
+    project: serializeProjectConfigSummary(
+      {
+        ...project,
+        dispatchMode: payload.dispatchMode ?? DEFAULT_DISPATCH_MODE,
+      },
+      null,
+    ),
   };
 
   return c.json(response, 201);
@@ -121,6 +127,7 @@ export const handleUpdateProject = async (c: AppContext): Promise<Response> => {
     payload.repoUrl === undefined &&
     payload.defaultBranch === undefined &&
     payload.configPath === undefined &&
+    payload.dispatchMode === undefined &&
     payload.repoToken === undefined
   ) {
     throw new HttpError(400, "empty_update", "At least one project field must be provided.");
@@ -139,6 +146,7 @@ export const handleUpdateProject = async (c: AppContext): Promise<Response> => {
     repoUrl: payload.repoUrl === undefined ? undefined : normalizeRepositoryUrl(payload.repoUrl),
     defaultBranch: payload.defaultBranch === undefined ? undefined : normalizeBranchName(payload.defaultBranch),
     configPath: payload.configPath === undefined ? undefined : normalizeConfigPath(payload.configPath),
+    dispatchMode: payload.dispatchMode,
     encryptedRepoToken: encryptedToken,
     now: Date.now(),
   });
@@ -160,7 +168,7 @@ export const handleUpdateProject = async (c: AppContext): Promise<Response> => {
   });
 
   const response: ProjectResponse = {
-    project: serializeProjectSummary(
+    project: serializeProjectConfigSummary(
       {
         ...projectIndex,
         ...result.config,

@@ -1,4 +1,11 @@
-import type { ProjectSummary, RunSummary, UserSummary, WebhookProvider, WebhookProviderConfig } from "@/contracts";
+import type {
+  DispatchMode,
+  ProjectSummary,
+  RunSummary,
+  UserSummary,
+  WebhookProvider,
+  WebhookProviderConfig,
+} from "@/contracts";
 
 interface MockSessionRecord {
   userId: string;
@@ -40,15 +47,19 @@ interface MockWebhookRecord {
   }>;
 }
 
+interface MockProjectRecord extends ProjectSummary {
+  dispatchMode?: DispatchMode;
+}
+
 interface MockState {
   version: 1;
   bookmarkCounter: number;
   users: UserSummary[];
   sessions: Record<string, MockSessionRecord>;
-  projects: ProjectSummary[];
+  projects: MockProjectRecord[];
   invites: MockInviteRecord[];
   runs: RunSummary[];
   webhooks: MockWebhookRecord[];
 }
 
-export type { MockSessionRecord, MockInviteRecord, MockWebhookRecord, MockState };
+export type { MockSessionRecord, MockInviteRecord, MockProjectRecord, MockWebhookRecord, MockState };

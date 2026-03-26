@@ -53,7 +53,9 @@ const assertRunPassed = (detail: RunDetail): void => {
 };
 
 export const scenarioSingleRunPasses = async (baseUrl: string, sessionId: SessionId): Promise<void> => {
-  const project = await createProject(baseUrl, sessionId, "Queue Runner Happy Path");
+  const project = await createProject(baseUrl, sessionId, "Queue Runner Happy Path", {
+    dispatchMode: "queue",
+  });
   const projectId = project.id;
   assert(project.name === "Queue Runner Happy Path", `Expected project name to match, got ${project.name}.`);
   assert(project.repoUrl === FIXTURE_REPO_URL, `Expected project repoUrl to match, got ${project.repoUrl}.`);
@@ -82,7 +84,9 @@ export const scenarioSingleRunPasses = async (baseUrl: string, sessionId: Sessio
 };
 
 export const scenarioBackToBackRunsAreSerial = async (baseUrl: string, sessionId: SessionId): Promise<void> => {
-  const project = await createProject(baseUrl, sessionId, "Queue Runner Serial Dispatch");
+  const project = await createProject(baseUrl, sessionId, "Queue Runner Serial Dispatch", {
+    dispatchMode: "queue",
+  });
   const projectId = project.id;
   const firstRunId = await triggerRun(baseUrl, sessionId, projectId);
   const secondRunId = await triggerRun(baseUrl, sessionId, projectId);
@@ -107,7 +111,9 @@ export const scenarioBackToBackRunsAreSerial = async (baseUrl: string, sessionId
 };
 
 export const scenarioWebhookTriggeredRunPasses = async (baseUrl: string, sessionId: SessionId): Promise<void> => {
-  const project = await createProject(baseUrl, sessionId, "Queue Runner Webhook Happy Path");
+  const project = await createProject(baseUrl, sessionId, "Queue Runner Webhook Happy Path", {
+    dispatchMode: "queue",
+  });
   const projectId = project.id;
   const webhookSecret = "queue-runner-integration-webhook-secret";
   const expectedCommitSha = await resolveFixtureHeadCommitSha();
@@ -177,5 +183,40 @@ export const scenarioWebhookTriggeredRunPasses = async (baseUrl: string, session
   );
 
   const projectDetail = await getProjectDetail(baseUrl, sessionId, projectId);
+  assert(projectDetail.project.lastRunStatus === "passed", "Expected project lastRunStatus to be passed.");
+};
+
+export const scenarioWorkflowRunPasses = async (baseUrl: string, sessionId: SessionId): Promise<void> => {
+  const project = await createProject(baseUrl, sessionId, "Workflows Runner Happy Path", {
+    dispatchMode: "workflows",
+  });
+  const projectId = project.id;
+
+  assert(project.name === "Workflows Runner Happy Path", `Expected project name to match, got ${project.name}.`);
+  assert(project.dispatchMode === "workflows", `Expected project dispatchMode=workflows, got ${project.dispatchMode}.`);
+  assert(project.repoUrl === FIXTURE_REPO_URL, `Expected project repoUrl to match, got ${project.repoUrl}.`);
+  assert(
+    project.defaultBranch === FIXTURE_DEFAULT_BRANCH,
+    `Expected project defaultBranch to match, got ${project.defaultBranch}.`,
+  );
+  assert(
+    project.configPath === FIXTURE_CONFIG_PATH,
+    `Expected project configPath to match, got ${project.configPath}.`,
+  );
+
+  const runId = await triggerRun(baseUrl, sessionId, projectId);
+  const terminalRun = await waitForTerminalRun(baseUrl, sessionId, runId);
+  assertRunPassed(terminalRun);
+
+  await waitForProjectSettled(baseUrl, sessionId, projectId);
+  const indexedRun = await waitForIndexedRun(baseUrl, sessionId, projectId, runId, "passed");
+  assert(indexedRun.exitCode === 0, `Expected indexed run ${runId} exitCode=0, got ${indexedRun.exitCode}.`);
+  assert(
+    typeof indexedRun.commitSha === "string" && /^[a-f0-9]{40}$/iu.test(indexedRun.commitSha),
+    `Expected indexed run ${runId} to have a resolved commitSha, got ${indexedRun.commitSha}.`,
+  );
+
+  const projectDetail = await getProjectDetail(baseUrl, sessionId, projectId);
+  assert(projectDetail.project.dispatchMode === "workflows", "Expected project dispatchMode to be workflows.");
   assert(projectDetail.project.lastRunStatus === "passed", "Expected project lastRunStatus to be passed.");
 };

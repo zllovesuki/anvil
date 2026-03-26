@@ -232,6 +232,10 @@ export const ProjectDetailPage = () => {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Dispatch</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-100">{project.dispatchMode}</p>
+        </div>
+        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
           <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Runs loaded</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-100">{String(runs.length).padStart(2, "0")}</p>
         </div>
@@ -242,12 +246,6 @@ export const ProjectDetailPage = () => {
         <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
           <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Pending</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-100">{String(pendingRuns.length).padStart(2, "0")}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Last commit</p>
-          <p className="mt-2 font-mono text-sm text-zinc-200">
-            {runs.length > 0 && runs[0].commitSha ? runs[0].commitSha.slice(0, 7) : "\u2014"}
-          </p>
         </div>
       </div>
 
