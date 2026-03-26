@@ -1,4 +1,5 @@
 import { type ExecutionSession, type Sandbox, type SessionOptions } from "@cloudflare/sandbox";
+import { isNoContainerInstanceError } from "@/worker/sandbox/container-errors";
 
 // This file exists due to @cloudflare/sandbox not exporting the error types
 // see: https://github.com/cloudflare/sandbox-sdk/issues/517
@@ -74,6 +75,7 @@ export const deleteSandboxSessionIfExists = async (
     await sandbox.deleteSession(sessionId);
   } catch (error) {
     if (
+      isNoContainerInstanceError(error) ||
       getErrorCode(error) === SESSION_DESTROYED_CODE ||
       getErrorName(error) === SESSION_DESTROYED_NAME ||
       hasErrorMessagePrefix(error, SESSION_DESTROYED_PREFIX)

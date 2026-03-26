@@ -6,7 +6,10 @@ import {
   softCancelProcessTree,
   waitForProcessTreeToStop,
 } from "@/worker/dispatch/shared/run-execution-context/process-tree";
-import { NO_CONTAINER_INSTANCE_ERROR_SUBSTRING } from "@/worker/sandbox/container-errors";
+import {
+  CONTAINER_NOT_RUNNING_ERROR_SUBSTRING,
+  NO_CONTAINER_INSTANCE_ERROR_SUBSTRING,
+} from "@/worker/sandbox/container-errors";
 import type { RunExecutionContextState } from "@/worker/dispatch/shared/run-execution-context/types";
 
 import { createQueueScope, createQueueState } from "../../../helpers/dispatch/shared";
@@ -61,6 +64,17 @@ describe("queue process helpers", () => {
 
     await expect(waitForProcessTreeToStop(session as never, 50, 0)).resolves.toBe(true);
     expect(session.cleanupCompletedProcesses).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a stopped container as an already-stopped process tree", async () => {
+    const session = {
+      listProcesses: vi.fn(async () => {
+        throw new Error(`Error: The ${CONTAINER_NOT_RUNNING_ERROR_SUBSTRING}, consider calling start()`);
+      }),
+      cleanupCompletedProcesses: vi.fn(async () => {}),
+    };
+
+    await expect(waitForProcessTreeToStop(session as never, 50, 0)).resolves.toBe(true);
   });
 
   it("returns false when sandbox destroy fails", async () => {

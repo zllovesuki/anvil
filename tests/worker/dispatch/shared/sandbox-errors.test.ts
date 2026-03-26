@@ -77,6 +77,16 @@ describe("sandbox process helpers", () => {
     await expect(deleteSandboxSessionIfExists(sandbox as never, "run-session")).resolves.toBeUndefined();
   });
 
+  it("treats a missing running container as success when deleting a session", async () => {
+    const sandbox = {
+      deleteSession: vi.fn(async () => {
+        throw new Error("Error: The container is not running, consider calling start()");
+      }),
+    };
+
+    await expect(deleteSandboxSessionIfExists(sandbox as never, "run-session")).resolves.toBeUndefined();
+  });
+
   it("swallows async dispose rejections from proxy-backed stubs", async () => {
     const flush = vi.fn(async () => {});
     disposeRpcStub({

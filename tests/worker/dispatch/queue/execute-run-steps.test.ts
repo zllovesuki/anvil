@@ -109,7 +109,7 @@ describe("queue execute run steps", () => {
     ]);
   });
 
-  it("fails a step, records step state, and redacts stderr output", async () => {
+  it("summarizes a failed step while preserving stderr logs", async () => {
     const scope = makeScope();
     const state = makeState();
     const runStore = createQueueRunStoreStub({
@@ -143,7 +143,7 @@ describe("queue execute run steps", () => {
     expect(outcome).toEqual({
       kind: "failed",
       exitCode: 5,
-      errorMessage: "redacted:boom",
+      errorMessage: 'redacted:Step "test" failed with exit code 5.',
     });
     expect(runStore.updateState).toHaveBeenCalledTimes(2);
     expect(runStore.updateStepState).toHaveBeenNthCalledWith(
@@ -159,7 +159,18 @@ describe("queue execute run steps", () => {
         exitCode: 5,
       }),
     );
-    expect(logs.redactMessage).toHaveBeenCalledWith("boom");
+    expect(runStore.appendLogs).toHaveBeenCalledTimes(1);
+    expect(runStore.appendLogs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        stream: "stdout",
+        chunk: "running build\n",
+      }),
+      expect.objectContaining({
+        stream: "stderr",
+        chunk: "boom",
+      }),
+    ]);
+    expect(logs.redactMessage).toHaveBeenCalledWith('Step "test" failed with exit code 5.');
     expect(session.execStream).toHaveBeenCalledWith(
       "npm test",
       expect.objectContaining({
@@ -336,5 +347,43 @@ describe("queue execute run steps", () => {
         status: "failed",
       }),
     );
+  });
+
+  it("prefers the abnormal stream error over stderr when the stream never completes", async () => {
+    const scope = makeScope();
+    const state = makeState();
+    const runStore = createQueueRunStoreStub({
+      updateState: vi.fn(async () => {}),
+      updateStepState: vi.fn(async () => {}),
+      appendLogs: vi.fn(async () => {}),
+    });
+    const logs = createQueueRunLogsStub({
+      redactMessage: vi.fn((message: string) => `redacted:${message}`),
+    });
+    const session = {
+      execStream: vi.fn(async () =>
+        createExecStream(
+          { type: "stderr", data: "npm warn deprecated something\n" },
+          { type: "stderr", data: "npm warn deprecated else\n" },
+        ),
+      ),
+    };
+    state.session = session as never;
+
+    const context = {
+      scope,
+      state,
+      runStore,
+      logs,
+    } satisfies StepContext;
+
+    const outcome = await executeRunSteps(context, createQueueLeaseStub(), makePrepared());
+
+    expect(outcome).toEqual({
+      kind: "failed",
+      exitCode: null,
+      errorMessage: "redacted:Command stream ended without a terminal event.",
+    });
+    expect(logs.redactMessage).toHaveBeenCalledWith("Command stream ended without a terminal event.");
   });
 });

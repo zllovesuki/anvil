@@ -11,6 +11,18 @@ import { createLogBatcher } from "./logging";
 
 type RunStepExecutionContext = Pick<RunExecutionContext, "logs" | "runStore" | "scope" | "state">;
 
+const toCommandFailureMessage = (stepName: string, result: CommandStreamResult): string => {
+  if (result.terminalEvent === "complete") {
+    if (typeof result.exitCode === "number") {
+      return `Step "${stepName}" failed with exit code ${result.exitCode}.`;
+    }
+
+    return `Step "${stepName}" failed.`;
+  }
+
+  return result.errorMessage || result.stderr || `Step "${stepName}" failed.`;
+};
+
 export const executeRunSteps = async (
   context: RunStepExecutionContext,
   lease: RunLeaseControl,
@@ -133,9 +145,7 @@ export const executeRunSteps = async (
       return {
         kind: "failed",
         exitCode: commandResult.exitCode,
-        errorMessage: context.logs.redactMessage(
-          commandResult.stderr || commandResult.errorMessage || `Step "${step.name}" failed.`,
-        ),
+        errorMessage: context.logs.redactMessage(toCommandFailureMessage(step.name, commandResult)),
       };
     }
 

@@ -11,8 +11,16 @@ export const getLiveCurrentProcess = (state: RunExecutionContextState): Process 
   state.currentProcess && isLiveProcess(state.currentProcess) ? state.currentProcess : null;
 
 export const isProcessTreeAlive = async (session: ExecutionSession): Promise<boolean> => {
-  const processes = await session.listProcesses();
-  return processes.some(isLiveProcess);
+  try {
+    const processes = await session.listProcesses();
+    return processes.some(isLiveProcess);
+  } catch (error) {
+    if (isNoContainerInstanceError(error)) {
+      return false;
+    }
+
+    throw error;
+  }
 };
 
 export const softCancelProcessTree = async (
