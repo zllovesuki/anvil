@@ -4,7 +4,7 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zllovesuki/anvil)
 
-> 💡 Container execution requires a [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) ($5/mo). D1, Queues, KV, and Durable Objects work on Free with limits.
+> 💡 Container execution requires a [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) ($5/mo). D1, Queues, Workflows, KV, and Durable Objects work on Free or Paid with platform-specific limits.
 
 Built with [GPT-5.4](https://openai.com/index/introducing-gpt-5-4/) and [Claude Opus 4.6](https://www.anthropic.com/claude/opus) agentic workflows. 🤖✨
 
@@ -55,6 +55,8 @@ Drop this in your repo root, point anvil at it, and you're running CI. ⚡
 
 📊 **FIFO run queue** — one active run per project, the rest queue up in order. No race conditions, no surprises
 
+🧭 **Selectable dispatch mode** — keep the existing Queue-backed path or use Cloudflare Workflows for durable orchestration
+
 🔒 **Invite-only access** — no open registration. Add teammates via time-bounded invite links
 
 🌐 **Any HTTPS Git repo** — GitHub, GitLab, Gitea, or any repo reachable over HTTPS with optional token auth
@@ -65,12 +67,12 @@ Drop this in your repo root, point anvil at it, and you're running CI. ⚡
 
 ## 🏗️ How it works
 
-- **Workers** — stateless HTTP frontdoor: routing, auth, queue dispatch
-- **ProjectDO** — per-project state machine: active run lock, pending queue, webhook config
+- **Workers** — stateless HTTP frontdoor: routing, auth, dispatch trigger
+- **ProjectDO** — per-project state machine: active run lock, pending queue, dispatch mode, webhook config
 - **RunDO** — per-run state: steps, rolling logs, WebSocket fanout to browsers
 - **D1** — durable relational index: users, projects, run history, invites
 - **KV** — ephemeral session storage with TTL
-- **Queue** — FIFO run dispatch, max batch size 1
+- **Dispatch** — Queue-backed or Workflow-backed run orchestration, both preserving FIFO at the project level
 - **Sandbox** — isolated container per run via `@cloudflare/sandbox`
 
 ---
@@ -83,7 +85,7 @@ Drop this in your repo root, point anvil at it, and you're running CI. ⚡
 | ⚙️  | Hono on Cloudflare Workers                       | Lightweight, edge-native HTTP framework           |
 | 💾  | D1 (SQLite), Durable Objects (SQLite), KV        | Right storage for each access pattern             |
 | 🗄️  | Drizzle ORM                                      | Type-safe database access across D1 and DO SQLite |
-| 📦  | Cloudflare Containers, Queues                    | Isolated execution with ordered dispatch          |
+| 📦  | Cloudflare Containers, Queues, Workflows         | Isolated execution with ordered dispatch          |
 | ✅  | `@cloudflare/util-en-garde`                      | Runtime codec validation at every boundary        |
 | 🔤  | TypeScript (strict) throughout                   | One language, zero escape hatches                 |
 
@@ -118,15 +120,15 @@ src/
     api/                 Route handlers (public + private)
     auth/                Sessions and password handling
     db/                  D1 and Durable Object schemas (Drizzle)
+    dispatch/            Queue + Workflow dispatch and shared execution
     durable/             ProjectDO and RunDO
-    queue/               Run queue consumer and execution
     sandbox/             Container lifecycle
   contracts/        📝  Shared client/server API types
   lib/              🔧  Shared utilities
 tests/
   worker/           ⚡  Fast Vitest unit tests
   e2e/              🎭  Playwright browser tests
-  integration/      🔗  Queue runner integration test
+  integration/      🔗  Queue and Workflow runner integration tests
 drizzle/            📦  Generated migrations (do not edit)
 docker/             🐳  Runner container image
 reference/          📖  Specs and design docs
@@ -136,16 +138,18 @@ reference/          📖  Specs and design docs
 
 ## 📜 Common scripts
 
-| Command               | What it does                                |
-| --------------------- | ------------------------------------------- |
-| `npm run dev`         | Start local dev server                      |
-| `npm run build`       | Production build                            |
-| `npm test`            | Fast Vitest suite                           |
-| `npm run test:e2e`    | Playwright browser tests                    |
-| `npm run typecheck`   | Full TypeScript type check                  |
-| `npm run db:generate` | Regenerate Drizzle migrations from schema   |
-| `npm run deploy`      | Remote D1 migrate, production build, deploy |
-| `npm run format`      | Prettier formatting                         |
+| Command                              | What it does                                |
+| ------------------------------------ | ------------------------------------------- |
+| `npm run dev`                        | Start local dev server                      |
+| `npm run build`                      | Production build                            |
+| `npm test`                           | Fast Vitest suite                           |
+| `npm run test:e2e`                   | Playwright browser tests                    |
+| `npm run test:integration:queue`     | Queue-backed live integration test          |
+| `npm run test:integration:workflows` | Workflow-backed live integration test       |
+| `npm run typecheck`                  | Full TypeScript type check                  |
+| `npm run db:generate`                | Regenerate Drizzle migrations from schema   |
+| `npm run deploy`                     | Remote D1 migrate, production build, deploy |
+| `npm run format`                     | Prettier formatting                         |
 
 See [OPERATOR.md](OPERATOR.md) for the full script reference, deployment guide, database operations, testing strategy, and Cloudflare binding details.
 

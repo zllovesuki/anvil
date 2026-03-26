@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## One Rule To Remember
+
+"Can we do more with less code?"
+
+Proposed implementation should target minimal code surface without sacrificing correctness, performance, and security. If you have an idea to refactor and making the code more reusable/maintainable/production-grade, propose it as an option, not as the default.
+
 ## Naming
 
 The product name is "anvil", with lowercase "a". Use this consistently in your response, code, comments, etc.
@@ -24,7 +30,7 @@ Manual verification is still expected for volatile paths, especially around sand
 - When validation is needed, prefer the existing worker harness for worker/backend changes, use the frontend e2e suite for client flows, then leave volatile-path verification for the user.
 - Keep shared client/server validation aligned when changing invite acceptance or password policy. `src/contracts/auth.ts` is the shared source of truth for invite/password constants.
 - `src/contracts/` is the shared client/server API surface: types and codecs that cross the HTTP boundary (API request/response shapes, branded IDs, public enums like `RunStatus`, `DispatchMode`). If the frontend never imports it, it does not belong here.
-- `src/worker/contracts/` holds worker-internal coordination types: DO RPC inputs/results, execution state machines (`ProjectRunStatus`, `D1SyncStatus`), queue messages, trusted serialization helpers, and repo-config validation. These cross the Workers↔DO boundary but never reach the client.
+- `src/worker/contracts/` holds worker-internal coordination types: DO RPC inputs/results, execution state machines (`ProjectRunStatus`, `D1SyncStatus`), dispatch/queue messages, trusted serialization helpers, and repo-config validation. These cross the Workers↔DO boundary but never reach the client.
 - Frontend code in `src/client/` must use proper accessibility (a11y) practices: semantic HTML elements, ARIA attributes where needed, keyboard navigability, sufficient color contrast, and screen-reader-friendly labels.
 
 ## User rules
@@ -61,15 +67,16 @@ Manual verification is still expected for volatile paths, especially around sand
 
 ## Testing
 
-- Available commands: `npm test`, `npm run test:integration:queue`, `npm run test:e2e`, `npx tsc -p tests/tsconfig.json --noEmit`
-- `tests/worker/` remains the fast worker-first harness for routes, D1/DO invariants, queue edge cases, and shared worker utilities
+- Available commands: `npm test`, `npm run test:integration:queue`, `npm run test:integration:workflows`, `npm run test:e2e`, `npx tsc -p tests/tsconfig.json --noEmit`
+- `tests/worker/` remains the fast worker-first harness for routes, D1/DO invariants, dispatch edge cases, and shared worker utilities
 - `tests/e2e/` is the live frontend Playwright suite for auth, route guards, profile flows, and basic project CRUD against a locally started app
 - `tests/integration/queue-runner-happy-path.test.ts` is the narrow end-to-end queue integration check: it applies local D1 migrations, seeds a bootstrap invite, starts the local app, accepts the invite, logs in, creates a project, triggers queued runs, verifies a passing run's steps/logs, and checks that back-to-back runs serialize correctly
+- `tests/integration/workflows-runner-happy-path.test.ts` is the narrow end-to-end Workflow-backed integration check: it applies local D1 migrations, seeds a bootstrap invite, starts the local app, accepts the invite, logs in, creates a Workflow-backed project, triggers a run, and verifies a passing run's steps/logs
 - Treat live run-execution coverage as expensive. Do not duplicate it across `tests/integration/queue-runner-happy-path.test.ts` and Playwright run-trigger flows.
-- Prefer the queue integration test as the automated run-execution check. Keep Playwright focused on browser/UI coverage unless there is a clear local-development reason to exercise real run execution there too.
-- If both the queue integration test and browser e2e coverage that triggers real runs need to be run on a local dev machine, run them sequentially, not in parallel.
+- Prefer the queue integration test for queue-backed execution and the workflows integration test for Workflow-backed execution. Keep Playwright focused on browser/UI coverage unless there is a clear local-development reason to exercise real run execution there too.
+- If the queue integration test, workflows integration test, and browser e2e coverage that triggers real runs need to be run on a local dev machine, run them sequentially, not in parallel.
 - Cloudflare Workers Vitest still runs with containers disabled; container-related workerd exceptions and sourcemap noise can appear in `tests/worker/` output without failing the file
-- Use the worker harness for fast feedback, use the Playwright suite for frontend validation, and treat the queue integration test as targeted coverage for the local run path rather than exhaustive sandbox validation
+- Use the worker harness for fast feedback, use the Playwright suite for frontend validation, and treat the integration tests as targeted coverage for the local run path rather than exhaustive sandbox validation
 - Watch out for queue/alarm side effects, long-running integration or e2e timeouts, and preserved temp-state logs when run-dispatch or browser coverage fails
 
 ## Quick references
@@ -78,13 +85,13 @@ Manual verification is still expected for volatile paths, especially around sand
 - Frontend UI work: `src/client/main.tsx`, `src/client/app.tsx`, `src/client/pages/`, `src/client/components/`, `src/client/styles/`
 - Client-side auth and API calls: `src/client/auth/`, `src/client/lib/`, `src/client/hooks/`, `src/client/toast/`
 - Shared client/server contracts: `src/contracts/`, `src/lib/`
-- Worker-internal contracts (DO RPC, queue coordination, execution state): `src/worker/contracts/`
+- Worker-internal contracts (DO RPC, dispatch coordination, execution state): `src/worker/contracts/`
 - API and routing work: `src/worker/index.ts`, `src/worker/router.ts`, `src/worker/http.ts`, `src/worker/hono.ts`, `src/worker/api/public/`, `src/worker/api/private/`
 - Auth and session flow: `src/worker/auth/`, `src/worker/db/d1/sessions.ts`, `scripts/seed-bootstrap-invite.ts`, `src/client/auth/`
 - Security headers and CSP: `src/worker/router.ts`, `src/worker/security/`, `index.html`
   The current CSP allows Google Fonts via `fonts.googleapis.com` and `fonts.gstatic.com`.
 - Data model and persistence: `src/worker/db/d1/`, `src/worker/db/durable/`, `drizzle/d1/`, `drizzle/project-do/`, `drizzle/run-do/`
-- Run orchestration and sandboxing: `src/worker/durable/project-do/`, `src/worker/durable/run-do/`, `src/worker/queue/`, `src/worker/sandbox/`
+- Run orchestration and sandboxing: `src/worker/durable/project-do/`, `src/worker/durable/run-do/`, `src/worker/dispatch/queue/`, `src/worker/dispatch/workflows/`, `src/worker/dispatch/shared/`, `src/worker/sandbox/`
 - Validation and codecs: `reference/en-garde.README.md`, `src/worker/validation.ts`, `src/lib/codec-errors.ts`
 - Testing and tooling: `tests/worker/`, `tests/e2e/`, `tests/integration/`, `tests/helpers/`, `package.json`, `wrangler.jsonc`, `vite.config.ts`, `vitest.config.ts`, `vitest.integration.config.ts`, `tsconfig.json`, `tsconfig.scripts.json`, `tests/tsconfig.json`, `worker-configuration.d.ts`
 
