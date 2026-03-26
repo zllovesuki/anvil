@@ -1,1 +1,2 @@
-export * from "@/client/auth/auth-context";
+export { AuthProvider } from "@/client/auth/auth-provider";
+export { useAuth } from "@/client/auth/use-auth";

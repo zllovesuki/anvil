@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { LoginRequest, UserSummary } from "@/contracts";
 import {
   ApiError,
@@ -15,27 +15,7 @@ import {
   setStoredSessionId,
 } from "@/client/lib";
 import { useToast } from "@/client/toast";
-
-interface StartupErrorState {
-  code: string;
-  message: string;
-}
-
-interface AuthContextValue {
-  mode: AuthMode;
-  canSelectMode: boolean;
-  user: UserSummary | null;
-  inviteTtlSeconds: number | null;
-  startupError: StartupErrorState | null;
-  isAuthenticated: boolean;
-  isInitializing: boolean;
-  signIn(payload: LoginRequest): Promise<void>;
-  signOut(): Promise<void>;
-  setMode(mode: AuthMode): void;
-  loginDirect(sessionId: string, user: UserSummary, inviteTtlSeconds: number): void;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import { AuthContext, type AuthContextValue, type StartupErrorState } from "@/client/auth/auth-context";
 
 const clearClientAuthState = (): void => {
   clearStoredSessionId();
@@ -196,32 +176,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        mode,
-        canSelectMode,
-        user,
-        inviteTtlSeconds,
-        startupError,
-        isAuthenticated: user !== null,
-        isInitializing,
-        signIn,
-        signOut,
-        setMode,
-        loginDirect,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  const value: AuthContextValue = {
+    mode,
+    canSelectMode,
+    user,
+    inviteTtlSeconds,
+    startupError,
+    isAuthenticated: user !== null,
+    isInitializing,
+    signIn,
+    signOut,
+    setMode,
+    loginDirect,
+  };
 
-export const useAuth = (): AuthContextValue => {
-  const value = useContext(AuthContext);
-  if (!value) {
-    throw new Error("useAuth must be used within AuthProvider.");
-  }
-
-  return value;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
