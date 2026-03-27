@@ -114,7 +114,7 @@ const ProductPreview = () => (
     <div className="relative space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Project overview</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Project overview</p>
           <h2 className="mt-2 text-lg font-semibold text-zinc-100">edge-docs</h2>
           <p className="mt-1 text-sm text-zinc-400">Repo-defined CI for a docs deploy pipeline running on the edge.</p>
         </div>
@@ -196,7 +196,7 @@ export const LandingPage = () => {
           <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:items-center">
             <div className="max-w-2xl">
               <Badge variant="accent">Invite-only beta</Badge>
-              <h1 className="mt-6 text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-zinc-100 sm:text-4xl">
                 CI that runs on the edge and lives in your repo.
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300 sm:text-lg">
@@ -219,44 +219,43 @@ export const LandingPage = () => {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Why anvil</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100">
-              Repo-defined pipelines, ordered runs, and live visibility.
-            </h2>
-          </div>
+        <div className="max-w-2xl">
+          <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Why anvil</p>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100">
+            Repo-defined pipelines, ordered runs, and live visibility.
+          </h2>
         </div>
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-2">
-          {valueProps.map((feature) => (
-            <Card
-              key={feature.title}
-              className="h-full border-zinc-800/60 bg-zinc-900/50 hover:border-zinc-700/60 hover:bg-zinc-900/80"
-            >
-              <div className="mb-5 inline-flex rounded-xl bg-accent-500/10 p-2.5 text-accent-400">
-                <feature.icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-xl font-semibold text-zinc-100">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-zinc-400">{feature.description}</p>
-            </Card>
+        <dl className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+          {valueProps.map((feature, i) => (
+            <div key={feature.title} className="animate-slide-up opacity-0" style={{ animationDelay: `${i * 60}ms` }}>
+              <dt className="flex items-center gap-2 text-base font-semibold text-zinc-100">
+                <feature.icon aria-hidden="true" className="h-4 w-4 text-accent-400" />
+                {feature.title}
+              </dt>
+              <dd className="mt-2 text-sm leading-6 text-zinc-400">{feature.description}</dd>
+            </div>
           ))}
-        </div>
+        </dl>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="rounded-[2rem] border border-zinc-800/60 bg-zinc-900/40 p-6 sm:p-8 lg:p-10">
           <div className="max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">How it works</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-100">
+            <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">How it works</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100">
               Three steps from repo to running pipeline.
             </h2>
           </div>
 
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
-            {workflow.map((item) => (
-              <div key={item.step} className="rounded-2xl border border-zinc-800/60 bg-zinc-950/70 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-accent-400">{item.step}</p>
+            {workflow.map((item, i) => (
+              <div
+                key={item.step}
+                className="animate-slide-up rounded-2xl border border-zinc-800/60 bg-zinc-950/70 p-5 opacity-0"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <p className="text-xs font-medium uppercase tracking-widest text-accent-400">{item.step}</p>
                 <h3 className="mt-3 text-xl font-semibold text-zinc-100">{item.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
               </div>

@@ -17,7 +17,7 @@ export const Input = ({ label, helperText, error, className, id, ...rest }: Inpu
       <input
         id={inputId}
         className={[
-          "w-full rounded-xl border bg-zinc-800/80 px-4 py-2.5 text-zinc-100 transition-colors duration-200 placeholder:text-zinc-500 focus:outline-none",
+          "w-full rounded-xl border bg-zinc-800/80 px-4 py-2.5 text-zinc-100 transition-colors placeholder:text-zinc-500 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
           error
             ? "border-red-500/50 focus:border-red-500/70 focus:ring-1 focus:ring-red-500/30"
             : "border-zinc-700/60 focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30",

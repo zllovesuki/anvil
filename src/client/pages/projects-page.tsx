@@ -16,7 +16,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const ProjectCard = ({ project }: { project: ProjectSummary }) => (
   <Link
     to={`/app/projects/${project.id}`}
-    className="group flex flex-col gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:border-zinc-700/60 hover:bg-zinc-900/80"
+    className="group flex flex-col gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-4 hover:-translate-y-0.5 hover:border-zinc-700/60 hover:bg-zinc-900/80 transition-transform"
   >
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">

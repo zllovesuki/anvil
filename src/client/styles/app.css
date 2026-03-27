@@ -3,7 +3,7 @@
 @theme {
   --default-transition-duration: 75ms;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 
   --color-accent-50: #eff6ff;
@@ -19,6 +19,8 @@
 
   --animate-fade-in: fade-in 0.4s ease-out both;
   --animate-slide-up: slide-up 0.35s ease-out both;
+  --animate-scale-fade: scale-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes fade-in {
@@ -43,6 +45,28 @@
   }
 }
 
+@keyframes scale-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+
+  to {
+    background-position: 200% 0;
+  }
+}
+
 html {
   color-scheme: dark;
 }
@@ -56,8 +80,15 @@ body {
   @apply text-zinc-100 antialiased;
   background-color: #09090b;
   background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.03) 0.5px, transparent 0.5px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.02) 0.5px, transparent 0.5px),
     radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.02), transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.015), transparent 50%);
+  background-size:
+    3px 3px,
+    7px 7px,
+    100% 100%,
+    100% 100%;
 }
 
 #root {
@@ -92,33 +123,6 @@ summary,
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
-}
-
-.skip-link {
-  position: absolute;
-  left: -10000px;
-  top: auto;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-.skip-link:focus {
-  position: fixed;
-  top: 0.5rem;
-  left: 0.5rem;
-  width: auto;
-  height: auto;
-  z-index: 100;
-  padding: 0.75rem 1rem;
-  background: #09090b;
-  color: #e4e4e7;
-  border: 1px solid rgba(63, 63, 70, 0.6);
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  outline: 2px solid #60a5fa;
-  outline-offset: 2px;
 }
 
 :focus-visible {

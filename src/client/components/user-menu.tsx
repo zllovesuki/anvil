@@ -48,7 +48,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
         {isInitializing ? <span className="hidden text-xs text-zinc-500 sm:block">Checking session...</span> : null}
         <Link
           to="/app/login"
-          className="inline-flex items-center gap-2 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors duration-200 hover:bg-zinc-700/60 hover:text-zinc-100"
+          className="inline-flex items-center gap-2 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100"
         >
           Sign In
         </Link>
@@ -75,7 +75,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-zinc-800/60 bg-zinc-900 p-1.5 shadow-2xl shadow-black/40"
+          className="absolute right-0 top-full z-50 mt-2 w-56 animate-scale-fade origin-top-right rounded-xl border border-zinc-800/60 bg-zinc-900 p-1.5 shadow-lg shadow-black/40"
         >
           <div className="border-b border-zinc-800/60 px-3 py-2.5">
             <p className="text-sm font-medium text-zinc-200">{user.displayName}</p>

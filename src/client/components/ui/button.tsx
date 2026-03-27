@@ -12,12 +12,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10 transition-[color,background-color,box-shadow] hover:shadow-md hover:shadow-accent-500/15",
+    "bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10 hover:from-accent-400 hover:to-accent-500 hover:shadow-md hover:shadow-accent-500/15 active:scale-[0.98] transition-transform",
   secondary:
-    "border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100",
+    "border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60 hover:text-zinc-100 active:scale-[0.98] transition-transform",
   danger:
-    "border border-red-500/20 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300",
-  ghost: "text-zinc-400 transition-colors hover:bg-zinc-800/70 hover:text-zinc-100",
+    "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 active:scale-[0.98] transition-transform",
+  ghost: "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 active:scale-[0.97] transition-transform",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

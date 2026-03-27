@@ -75,7 +75,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
             <div
               key={toast.id}
               className={[
-                "animate-slide-up rounded-2xl border p-4 shadow-2xl shadow-black/30 backdrop-blur-xl",
+                "animate-slide-up rounded-2xl border p-4 shadow-lg shadow-black/30 backdrop-blur-sm",
                 meta.panel,
               ].join(" ")}
             >

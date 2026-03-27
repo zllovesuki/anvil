@@ -176,6 +176,7 @@ Never use `shadow-lg` or `shadow-xl` on interactive elements. Reserve `shadow-2x
 | Box shadow + color + background | `transition-[color,background-color,box-shadow]` |
 | Filter (brightness) + opacity   | `transition-[filter,opacity]`                    |
 | Opacity only                    | `transition-opacity`                             |
+| Transform (scale, translate)    | `transition-transform`                           |
 
 Default transition duration is overridden to **75ms** via `--default-transition-duration` in `@theme` (Tailwind default is 150ms, which feels sluggish on hover). Do not use `hover:brightness-*` on gradient buttons -- it forces the GPU to recompute the filtered gradient each frame. Use a color swap instead (e.g., `hover:from-accent-400 hover:to-accent-500`).
 
@@ -196,7 +197,7 @@ Every project's `app.css` follows this exact structure. The **only** per-project
 @theme {
   --default-transition-duration: 75ms;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 
   /* Project accent color palette -- replace values per project */
@@ -213,6 +214,8 @@ Every project's `app.css` follows this exact structure. The **only** per-project
 
   --animate-fade-in: fade-in 0.4s ease-out both;
   --animate-slide-up: slide-up 0.35s ease-out both;
+  --animate-scale-fade: scale-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes fade-in {
@@ -235,6 +238,26 @@ Every project's `app.css` follows this exact structure. The **only** per-project
   }
 }
 
+@keyframes scale-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
 html {
   color-scheme: dark;
 }
@@ -247,8 +270,11 @@ body {
   @apply text-zinc-100 antialiased;
   background-color: #09090b;
   background-image:
+    radial-gradient(circle, rgba(255,255,255,0.03) 0.5px, transparent 0.5px),
+    radial-gradient(circle, rgba(255,255,255,0.02) 0.5px, transparent 0.5px),
     radial-gradient(circle at 20% 20%, rgba(<accent-rgb>, 0.02), transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(<accent-rgb>, 0.015), transparent 50%);
+  background-size: 3px 3px, 7px 7px, 100% 100%, 100% 100%;
 }
 
 #root {
@@ -326,7 +352,7 @@ The accent palette follows a 50--900 scale identical in structure to Tailwind's 
 
 | Element                 | Classes                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------ |
-| Primary CTA button      | `bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-lg shadow-accent-500/20` |
+| Primary CTA button      | `bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10` |
 | Secondary button        | `border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60`              |
 | Active nav item         | `bg-accent-500/10 text-accent-400`                                                         |
 | Inputs (focus)          | `focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30`                         |
@@ -351,16 +377,16 @@ The accent palette follows a 50--900 scale identical in structure to Tailwind's 
 
 Loaded via Google Fonts `<link>` tags with `preconnect`:
 
-| Font               | Weights            | Usage                            |
-| ------------------ | ------------------ | -------------------------------- |
-| **Inter**          | 400, 500, 600, 700 | Body text, UI elements, headings |
-| **JetBrains Mono** | 400, 500           | Code blocks, monospace content   |
+| Font               | Weights                 | Usage                            |
+| ------------------ | ----------------------- | -------------------------------- |
+| **Hanken Grotesk** | 400, 500, 600, 700, 800 | Body, UI, headings (800 display) |
+| **JetBrains Mono** | 400, 500                | Code blocks, monospace content   |
 
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
   rel="stylesheet"
 />
 ```
@@ -368,25 +394,94 @@ Loaded via Google Fonts `<link>` tags with `preconnect`:
 ### Font Stacks (defined in `@theme`)
 
 ```css
---font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+--font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
 --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 ```
 
+### Heading Scale
+
+Headings use tighter tracking and heavier weights for visual hierarchy:
+
+| Level   | Classes                                                       | Usage                       |
+| ------- | ------------------------------------------------------------- | --------------------------- |
+| Display | `text-3xl sm:text-4xl font-extrabold tracking-tight`          | Hero headlines, page titles |
+| H1      | `text-2xl font-bold tracking-tight`                           | Section titles              |
+| H2      | `text-xl font-semibold`                                       | Card titles, subsections    |
+| H3      | `text-base font-semibold`                                     | List labels, sidebar heads  |
+| Caption | `text-xs font-medium uppercase tracking-widest text-zinc-500` | Overlines, meta labels      |
+
+- `tracking-tight` (`-0.025em`) on Display and H1 tightens letterforms for impact at large sizes
+- `tracking-widest` (`0.1em`) on Captions creates a small-caps effect for overlines and meta labels
+- Never use `font-light` or `font-thin` — insufficient contrast on dark backgrounds
+
 ---
 
-## 6. Animations
+## 6. Animations & Motion
 
-Two standard animations are defined in every project:
+### Philosophy
 
-| Name       | Duration | Easing   | Effect                                  |
-| ---------- | -------- | -------- | --------------------------------------- |
-| `fade-in`  | 0.4s     | ease-out | Opacity 0 to 1                          |
-| `slide-up` | 0.35s    | ease-out | Opacity 0 + translateY(12px) to visible |
+Motion should feel intentional and physical — elements arrive from somewhere, settle into place, and respond to interaction. Prefer orchestrated sequences (staggered reveals on page load) over scattered micro-animations. Every animation must serve either **orientation** (where am I?), **feedback** (what did I do?), or **continuity** (what just changed?).
 
-Usage:
+### Standard Keyframes
 
-- `animate-fade-in` -- applied to main content areas on page load
-- `animate-slide-up` -- applied to page-level content wrappers for entrance transitions
+Four keyframes are defined in every project's `app.css`:
+
+| Name         | Duration | Easing                        | Effect                                          |
+| ------------ | -------- | ----------------------------- | ----------------------------------------------- |
+| `fade-in`    | 0.4s     | ease-out                      | Opacity 0 → 1                                   |
+| `slide-up`   | 0.35s    | ease-out                      | Opacity 0 + translateY(12px) → visible          |
+| `scale-fade` | 0.3s     | cubic-bezier(0.16, 1, 0.3, 1) | Opacity 0 + scale(0.96) → visible               |
+| `shimmer`    | 1.5s     | ease-in-out                   | Background position sweep (loading placeholder) |
+
+### Entrance Animations
+
+- `animate-fade-in` — main content areas on page load
+- `animate-slide-up` — page-level content wrappers, modal/dialog entrances
+- `animate-scale-fade` — cards, popovers, dropdown menus (scale implies origin)
+
+### Staggered Reveals
+
+When multiple sibling elements enter together (card grids, list items, stat blocks), stagger their `animation-delay` to create a cascade:
+
+```tsx
+{
+  items.map((item, i) => (
+    <Card key={item.id} className="animate-slide-up opacity-0" style={{ animationDelay: `${i * 60}ms` }} />
+  ));
+}
+```
+
+Rules:
+
+- Base delay increment: **60ms** per item (fast enough to feel connected, slow enough to perceive the sequence)
+- Cap at **8 items** (480ms total) — beyond that, truncate the stagger so the tail doesn't drag
+- Always set `opacity-0` on the element so it's invisible before the animation fires (`animation-fill-mode: both` in the keyframe handles the final state)
+
+### Interaction Micro-Animations
+
+| Interaction         | Effect                       | Implementation                                    |
+| ------------------- | ---------------------------- | ------------------------------------------------- |
+| Button press        | Subtle scale-down on active  | `active:scale-[0.98]` + `transition-transform`    |
+| Card hover lift     | Slight upward shift          | `hover:-translate-y-0.5` + `transition-transform` |
+| Icon button hover   | Gentle scale                 | `hover:scale-105` + `transition-transform`        |
+| Toggle state change | Instant swap (no transition) | Conditional classes, no `transition-*`            |
+| Toast entrance      | Slide up from bottom-right   | `animate-slide-up`                                |
+| Dropdown open       | Scale from origin + fade     | `animate-scale-fade` with `transform-origin`      |
+
+### Loading Skeletons
+
+Use a shimmer animation for placeholder content:
+
+```
+Skeleton: bg-gradient-to-r from-zinc-800/0 via-zinc-700/40 to-zinc-800/0 bg-[length:200%_100%] animate-shimmer rounded-lg
+```
+
+### What Not to Animate
+
+- **Layout properties**: `width`, `height`, `top`, `left`, `margin`, `padding` — triggers layout recalculation
+- **Border hue shifts**: covered in Section 3 (no zinc → accent transitions)
+- **Scroll-linked parallax**: avoid JS-driven scroll animations — they fight the compositor and add jank
+- **Below-fold entrances**: only animate elements visible on initial load; below-fold content should already be in its final state when scrolled into view
 
 ---
 
@@ -436,10 +531,10 @@ Every project has an `app-shell.tsx` that renders:
 ### Header (`header.tsx`)
 
 - **Position**: `sticky top-0 z-50`
-- **Background**: `bg-zinc-950/80 backdrop-blur-xl` (dark), `bg-white/80 backdrop-blur-xl` (light)
+- **Background**: `bg-zinc-950/95 backdrop-blur-sm` (dark), `bg-white/95 backdrop-blur-sm` (light)
 - **Border**: `border-b border-zinc-800/60`
 - **Container**: `max-w-7xl mx-auto px-4 sm:px-6`
-- **Logo**: gradient icon (`rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 shadow-lg shadow-accent-500/20`) + app name + subtitle
+- **Logo**: gradient icon (`rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 shadow-sm shadow-accent-500/10`) + app name + subtitle
 - **Nav links**: Icon + label, `bg-accent-500/10 text-accent-400` when active
 
 ### Footer (`footer.tsx`)
@@ -456,6 +551,17 @@ Every project has an `app-shell.tsx` that renders:
 - **Padding**: `px-4 sm:px-6` (horizontal), `py-6` (vertical)
 - **Centered**: `mx-auto`
 
+### Hero & Landing Sections
+
+**No generic card grids on landing pages.** The default "three feature cards in a row" layout is the hallmark of AI-generated marketing pages. Hero sections and landing pages should use purpose-built compositions:
+
+- **Show the product**: live demos, interactive previews, terminal recordings, or annotated screenshots — not abstract descriptions in rounded rectangles
+- **Use typographic hierarchy for impact**: a strong Display heading + a single paragraph of `text-zinc-400` body text does more work than three cards with icons
+- **If you need to list features**: use a simple `dl` or a two-column prose layout with inline `text-accent-400` highlights — no wrapping each item in a bordered card
+- **Reserve cards for actual content**: cards are for user-facing data objects (emails, repos, pastes) — not for decorating copy
+
+When a page _does_ need a multi-item grid (e.g., a dashboard), each card should contain real, scannable data — not a hero icon + title + one-sentence description.
+
 ---
 
 ## 8. Component Patterns
@@ -469,10 +575,10 @@ Every project must have a `components/ui/` directory with at least these compone
 Variants: `primary`, `secondary`, `danger`, `ghost`. Sizes: `sm`, `md`.
 
 ```
-Primary:  bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-lg shadow-accent-500/20
-Secondary: border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60
-Danger:   border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20
-Ghost:    text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100
+Primary:   bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10 active:scale-[0.98] transition-transform
+Secondary: border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60 active:scale-[0.98] transition-transform
+Danger:    border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-[0.98] transition-transform
+Ghost:     text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 active:scale-[0.97] transition-transform
 ```
 
 #### Card
@@ -484,12 +590,15 @@ Default: rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-5 sm:p-6
 Accent:  rounded-2xl border border-accent-500/20 bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 p-5 sm:p-6
 ```
 
+Interactive (clickable) cards add: `hover:-translate-y-0.5 transition-transform cursor-pointer`
+
 #### Input
 
 ```
 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/80 px-4 py-2.5
 text-zinc-100 placeholder:text-zinc-500
 focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 focus:outline-none
+focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
 ```
 
 With label, helper text, and error states.
@@ -516,6 +625,16 @@ grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]
 <span class="h-2 w-2 rounded-full bg-red-500" />  -- error
 <span class="h-2 w-2 rounded-full bg-zinc-500" />  -- inactive
 ```
+
+### Focus-Visible Ring
+
+All interactive elements must show a focus ring for keyboard navigation. Use `focus-visible` (not `focus`) to avoid showing rings on mouse click:
+
+```
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+```
+
+The `ring-offset-zinc-950` matches the page background, creating a gap between the element and the ring for visual clarity.
 
 ---
 
@@ -620,3 +739,100 @@ export const App = () => (
 - Cloudflare Workers via `wrangler deploy`
 - Database migrations run before deploy where applicable
 - Custom domains configured in `wrangler.jsonc`
+
+---
+
+## 13. Accessibility
+
+### Baseline
+
+Every project must meet **WCAG 2.1 AA** as a minimum. Accessibility is not a follow-up task — it ships with the feature.
+
+### Semantic HTML
+
+Use the correct element for the job. `<button>` for actions, `<a>` for navigation, `<input>` for form fields. Never attach click handlers to `<div>` or `<span>` — use a `<button>` with `variant="ghost"` if you need an unstyled clickable.
+
+Landmarks (`<header>`, `<nav>`, `<main>`, `<footer>`, `<aside>`) must be present and used correctly in the app shell. There should be exactly one `<main>` per page.
+
+### Keyboard Navigation
+
+- All interactive elements must be reachable via **Tab** in a logical order
+- `focus-visible` rings are mandatory on every interactive element (see Section 8 — Focus-Visible Ring)
+- Modal dialogs must **trap focus** — Tab cycles within the dialog until it is dismissed
+- Pressing **Escape** must close modals, dropdowns, and popovers
+- Custom components (dropdowns, menus, tabs) must implement the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) keyboard patterns for their role
+
+### ARIA
+
+- Prefer semantic HTML over ARIA — `aria-*` attributes are a supplement, not a substitute
+- Icon-only buttons must have `aria-label` (e.g., `<button aria-label="Close"><X /></button>`)
+- Loading states must use `aria-busy="true"` on the container and `aria-live="polite"` for dynamic content updates
+- Toast notifications must use `role="status"` and `aria-live="polite"` (or `aria-live="assertive"` for errors)
+- Form inputs must be associated with their labels via `htmlFor`/`id` — never rely on placeholder text as the only label
+- Error messages must be linked to their input via `aria-describedby`
+- Expandable sections (accordions, dropdowns) must use `aria-expanded`
+- Decorative icons use `aria-hidden="true"`; informational icons need accessible text
+
+### Color Contrast
+
+| Element                                   | Minimum ratio | Standard                 |
+| ----------------------------------------- | ------------- | ------------------------ |
+| Body text (`zinc-100` on `zinc-950`)      | 4.5:1         | AA normal                |
+| Secondary text (`zinc-400` on `zinc-950`) | 4.5:1         | AA normal                |
+| Muted text (`zinc-500` on `zinc-950`)     | 3:1           | AA large / UI components |
+| Interactive controls (borders, icons)     | 3:1           | AA UI                    |
+
+Never rely on color alone to communicate state. Pair color with an icon, label, or pattern:
+
+```
+✓  <Badge variant="error"><AlertCircle size={14} /> Failed</Badge>
+✗  <span className="text-red-400">Failed</span>   ← color is the only signal
+```
+
+### Reduced Motion
+
+Respect the user's `prefers-reduced-motion` preference. Add this to `app.css`:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+```
+
+This disables all entrance animations, staggered reveals, hover transitions, and shimmer effects in one rule. Do **not** add per-element motion queries — the global rule covers everything.
+
+### SPA Route Changes
+
+Client-side navigation does not trigger a browser page load, so screen readers must be notified:
+
+- Set `document.title` on every route change
+- Move focus to the page's `<h1>` or a skip-target on navigation (prevents the reader from restarting at the top of the DOM)
+- Announce route changes with a visually-hidden `aria-live="polite"` region
+
+### Skip Link
+
+Every project must include a skip-to-content link as the first focusable element in the DOM:
+
+```tsx
+<a
+  href="#main-content"
+  className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:rounded-lg focus:bg-zinc-900 focus:px-4 focus:py-2 focus:text-accent-400 focus:ring-2 focus:ring-accent-500/50"
+>
+  Skip to content
+</a>
+```
+
+The `<main>` element must have `id="main-content"` to receive the skip target.
+
+### Images & Media
+
+- All `<img>` elements must have an `alt` attribute — descriptive for content images, `alt=""` for decorative ones
+- Videos must have captions or a text transcript
+- SVG icons used inline must have `aria-hidden="true"` when decorative, or `role="img"` + `<title>` when informational

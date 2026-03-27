@@ -13,7 +13,7 @@ export const AppConfigErrorPage = ({ message }: { message: string }) => {
       <div className="mb-6 inline-flex rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-300">
         <AlertTriangle className="h-10 w-10" aria-hidden="true" />
       </div>
-      <h1 id="app-config-error-title" className="text-3xl font-semibold tracking-tight text-zinc-100">
+      <h1 id="app-config-error-title" className="text-2xl font-bold tracking-tight text-zinc-100">
         App encryption keys are not configured
       </h1>
       <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">{message}</p>
