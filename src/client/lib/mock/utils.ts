@@ -2,7 +2,7 @@ import type { WebhookProvider, WebhookProviderConfig } from "@/contracts";
 import { ApiError } from "@/client/lib/api-contract";
 import { getWebhookProviderCatalogEntry } from "@/lib/webhooks";
 
-export const MOCK_DB_KEY = "anvil.mock.db.v1";
+export const MOCK_DB_KEY = "anvil.mock.db.v2";
 export const ENTITY_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 export const SESSION_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
 

@@ -1,11 +1,12 @@
 import { ProjectSummary, RunSummary, UserSummary } from "@/contracts";
 import type { MockWebhookRecord } from "./types";
+import { MOCK_DEMO_EMAIL } from "./demo-account";
 
 export const seedUser = UserSummary.assertDecode({
   id: "usr_0000000000000000000000",
-  slug: "rachel",
-  email: "rachel@example.com",
-  displayName: "Rachel Operator",
+  slug: "mockery",
+  email: MOCK_DEMO_EMAIL,
+  displayName: "Mock Operator",
   createdAt: "2026-03-10T16:00:00.000Z",
   disabledAt: null,
 });

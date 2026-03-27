@@ -7,7 +7,7 @@ import { buildMockDeliveries } from "./builders";
 import { MOCK_DB_KEY } from "./utils";
 
 export const createSeedState = (): MockState => ({
-  version: 1,
+  version: 2,
   bookmarkCounter: 0,
   users: [seedUser],
   sessions: {},
@@ -37,7 +37,7 @@ export const loadState = (): MockState => {
 
   try {
     const parsed = JSON.parse(raw) as MockState;
-    const state: MockState = parsed.version === 1 ? parsed : createSeedState();
+    const state: MockState = parsed.version === 2 ? parsed : createSeedState();
     if (!state.invites) {
       state.invites = [];
     }

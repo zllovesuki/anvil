@@ -52,7 +52,7 @@ interface MockProjectRecord extends ProjectSummary {
 }
 
 interface MockState {
-  version: 1;
+  version: 2;
   bookmarkCounter: number;
   users: UserSummary[];
   sessions: Record<string, MockSessionRecord>;

@@ -4,22 +4,20 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { Button, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
 import { formatApiError } from "@/client/lib";
-
-const MOCK_MODE_EMAIL = "anvil@devbin.tools";
-const MOCK_MODE_PASSWORD = "anvil-demo";
+import { MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD } from "@/client/lib/mock";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { canSelectMode, isAuthenticated, isInitializing, mode, signIn } = useAuth();
-  const [email, setEmail] = useState(() => (mode === "mock" ? MOCK_MODE_EMAIL : ""));
-  const [password, setPassword] = useState(() => (mode === "mock" ? MOCK_MODE_PASSWORD : ""));
+  const [email, setEmail] = useState(() => (mode === "mock" ? MOCK_DEMO_EMAIL : ""));
+  const [password, setPassword] = useState(() => (mode === "mock" ? MOCK_DEMO_PASSWORD : ""));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (mode === "mock") {
-      setEmail(MOCK_MODE_EMAIL);
-      setPassword(MOCK_MODE_PASSWORD);
+      setEmail(MOCK_DEMO_EMAIL);
+      setPassword(MOCK_DEMO_PASSWORD);
       return;
     }
 
@@ -39,7 +37,7 @@ export const LoginPage = () => {
           !canSelectMode
             ? "Use an invited account provisioned in D1."
             : mode === "mock"
-              ? "Mock mode — any non-empty credentials will seed a local workspace."
+              ? "Mock mode — use the prefilled demo account to open the seeded local workspace."
               : "Live mode — use an invited account provisioned in D1."
         }
       />
