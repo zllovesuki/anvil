@@ -24,7 +24,7 @@ const HeaderBrand = ({ href, subtitle }: { href: string; subtitle: string }) => 
       <Hammer className="h-5 w-5 text-white" />
     </span>
     <span className="hidden sm:block">
-      <strong className="block text-sm font-semibold text-zinc-100">anvil</strong>
+      <strong className="block font-display text-sm font-semibold text-zinc-100">anvil</strong>
       <small className="block text-xs text-zinc-500">{subtitle}</small>
     </span>
   </Link>

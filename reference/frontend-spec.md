@@ -134,7 +134,16 @@ src/
 
 ---
 
-## 3. Styling
+## 3. Styling & Aesthetics
+
+### Devbin Tools Design Philosophy
+
+**"Consistently Distinctive"**: Every app within the `devbin.tools` ecosystem shares a consistent technical foundation and base visual language (dark-mode Zinc palette, standard shell components, specific shadows/radii) so users visually recognize they are using a `devbin.tools` product. 
+
+However, within these shared constraints, each application must exhibit a **distinctive, bold, and memorable aesthetic**.
+- **Aesthetic Direction**: Interpret the project's specific purpose creatively. Pick an aesthetic flavor that fits the tool's tone (e.g., brutalist/utilitarian, premium/refined, retro-terminal, etc.) and inject that flavor via typography, backgrounds, or layouts.
+- **No Generic Predictability**: Avoid uninspired aesthetics like cliched layouts, overly predictable component patterns, and standard minimalist boilerplate. Design should be deeply intentional.
+- **Visual Depth**: Create atmosphere and depth. Rather than sticking purely to flat Zinc surfaces, selectively apply contextual effects (gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, or custom cursors) that define the app's unique identity.
 
 ### Approach
 
@@ -182,7 +191,7 @@ Default transition duration is overridden to **75ms** via `--default-transition-
 
 ### Performance
 
-- **Ambient glow**: apply the radial-gradient glow directly on `body`'s `background-image` alongside `background-color`. **Do not** use a `position: fixed` pseudo-element (`body::before`) — even with `will-change: transform`, a full-viewport fixed layer forces compositor blending against all scrolling content every frame, halving scroll frame rate (~33ms p50 vs ~16.7ms). Putting the gradient on `body` itself avoids the extra compositing layer entirely with no visual difference (the glow is ≤ 2% opacity).
+- **Ambient glow & Textures**: apply the radial-gradient glow directly on `body`'s `background-image` alongside `background-color`. **Do not** use a `position: fixed` pseudo-element (`body::before`) — even with `will-change: transform`, a full-viewport fixed layer forces compositor blending against all scrolling content every frame, halving scroll frame rate (~33ms p50 vs ~16.7ms). Putting the gradient on `body` itself avoids the extra compositing layer entirely with no visual difference (the glow is ≤ 2% opacity). Adding grain, noise textures, or geometric grid patterns on top of this glow is highly encouraged to give the app a tactile feel, as long as it is applied performantly via CSS `background-image` layering on the `body`.
 - **`backdrop-blur-sm`** on sticky headers is acceptable. Prefer `backdrop-blur-sm` (4px) over `backdrop-blur-xl` (24px) — the larger radius is ~6× more expensive per frame and barely distinguishable at high background opacity. Pair with `bg-zinc-950/95` so the blur is cosmetic, not structural.
 
 ### Global CSS Template
@@ -373,20 +382,26 @@ The accent palette follows a 50--900 scale identical in structure to Tailwind's 
 
 ## 5. Typography
 
-### Fonts
+### Primary Fonts
+
+The Devbin ecosystem uses `Hanken Grotesk` and `JetBrains Mono` as the shared baseline for body text, inputs, and UI components. **Generic fonts like Arial, Roboto, or Inter are strictly forbidden.**
+
+However, to give each app its distinctive aesthetic, **you are heavily encouraged to pair a bold, characterful Display font** for primary headings (`<h1>`, `<h2>`, hero text) alongside the refined `Hanken Grotesk` body font. Consider unconventional choices that elevate the visual interest (e.g., striking serifs, geometric displays, or brutalist grotesques).
 
 Loaded via Google Fonts `<link>` tags with `preconnect`:
 
-| Font               | Weights                 | Usage                            |
-| ------------------ | ----------------------- | -------------------------------- |
-| **Hanken Grotesk** | 400, 500, 600, 700, 800 | Body, UI, headings (800 display) |
-| **JetBrains Mono** | 400, 500                | Code blocks, monospace content   |
+| Font                    | Weights                 | Usage                                      |
+| ----------------------- | ----------------------- | ------------------------------------------ |
+| **Hanken Grotesk**      | 400, 500, 600, 700      | Body, UI elements, secondary headings      |
+| **JetBrains Mono**      | 400, 500                | Code blocks, monospace content             |
+| **[Project Display]**   | *as needed*             | High-impact headings (Display, H1, Heroes) |
 
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Always include the baseline fonts, plus any distinctive display fonts chosen for the specific project -->
 <link
-  href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Project+Specific+Display&display=swap"
   rel="stylesheet"
 />
 ```
@@ -420,7 +435,9 @@ Headings use tighter tracking and heavier weights for visual hierarchy:
 
 ### Philosophy
 
-Motion should feel intentional and physical — elements arrive from somewhere, settle into place, and respond to interaction. Prefer orchestrated sequences (staggered reveals on page load) over scattered micro-animations. Every animation must serve either **orientation** (where am I?), **feedback** (what did I do?), or **continuity** (what just changed?).
+Motion should feel intentional, physical, and **high-impact**. Prefer orchestrated sequences (such as a single, well-choreographed page load with staggered reveals) over scattered, distracting micro-animations. Every animation must serve either **orientation** (where am I?), **feedback** (what did I do?), or **continuity** (what just changed?). 
+
+To create genuine delight, deeply integrate motion into the aesthetic: use scroll-triggering, surprise hover states, and smooth staggered cascades that breathe life into the UI.
 
 ### Standard Keyframes
 
@@ -551,16 +568,17 @@ Every project has an `app-shell.tsx` that renders:
 - **Padding**: `px-4 sm:px-6` (horizontal), `py-6` (vertical)
 - **Centered**: `mx-auto`
 
-### Hero & Landing Sections
+### Hero, Layout & Spatial Composition
 
-**No generic card grids on landing pages.** The default "three feature cards in a row" layout is the hallmark of AI-generated marketing pages. Hero sections and landing pages should use purpose-built compositions:
+**Banish Generic Patterns.** The default "three feature cards in a row" or the generic centered-hero-with-two-buttons are the hallmark of lazy AI-generated pages. Layouts should use highly creative, purpose-built compositions that align with the app's chosen aesthetic:
 
-- **Show the product**: live demos, interactive previews, terminal recordings, or annotated screenshots — not abstract descriptions in rounded rectangles
-- **Use typographic hierarchy for impact**: a strong Display heading + a single paragraph of `text-zinc-400` body text does more work than three cards with icons
-- **If you need to list features**: use a simple `dl` or a two-column prose layout with inline `text-accent-400` highlights — no wrapping each item in a bordered card
-- **Reserve cards for actual content**: cards are for user-facing data objects (emails, repos, pastes) — not for decorating copy
+- **Unexpected Layouts**: Don't default to perfectly symmetric constraints. Embrace asymmetry, grid-breaking overlapping elements, diagonal flows, and either generous negative space or tightly controlled density depending on the tone.
+- **Show the product**: Use live demos, interactive previews, terminal recordings, or stylized component showcases—not abstract descriptions floating in a rounded rectangle.
+- **Typographic Impact**: A dominant, oversized Display heading featuring the project's unique font paired with strong negative space is vastly superior to scattered bullet points.
+- **Alternative Rhythms**: If you need to list features or data, use a simple `dl`, a two-column prose layout with inline `text-accent-400` highlights, dramatic large-numbered lists, or staggered asymmetric masonry—do **not** wrap every item in a bordered card.
+- **Reserve `<Card>` primitives for actual content**: Cards are for user-facing data objects (emails, repos, pastes)—not for decorating marketing copy or simple instructions.
 
-When a page _does_ need a multi-item grid (e.g., a dashboard), each card should contain real, scannable data — not a hero icon + title + one-sentence description.
+When a page _does_ need a multi-item grid (e.g., a dashboard), each card should contain real, scannable data—not just an icon, a title, and a placeholder sentence.
 
 ---
 

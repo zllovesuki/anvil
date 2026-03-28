@@ -1,27 +1,23 @@
-import { ArrowRight, Cloud, GitBranch, Lock, Radio, Workflow } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { StatusPill } from "@/client/components";
-import { Badge, Button, Card } from "@/client/components/ui";
+import { Badge, Button } from "@/client/components/ui";
 
 const valueProps = [
   {
-    icon: GitBranch,
     title: "Pipeline config lives in the repo",
     description: "anvil reads `.anvil.yml` from your branch — review it, revert it, override it per branch.",
   },
   {
-    icon: Workflow,
     title: "Serialized runs, no extra locking",
     description: "One active run per project, everything else in a durable FIFO queue.",
   },
   {
-    icon: Radio,
     title: "Logs stream while the run is live",
     description: "See what's running, what failed, and what's queued next — during the run, not after.",
   },
   {
-    icon: Cloud,
     title: "Runs on Cloudflare end-to-end",
     description: "Durable Objects, Queues, D1, and Sandbox SDK — no glue services in between.",
   },
@@ -81,10 +77,7 @@ const LandingActions = ({ isAuthenticated }: { isAuthenticated: boolean }) =>
   isAuthenticated ? (
     <div className="flex flex-wrap items-center gap-3">
       <Link to="/app/projects">
-        <Button variant="primary">
-          Go to Dashboard
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <Button variant="primary">Go to Dashboard</Button>
       </Link>
       <Link to="/app/projects/new">
         <Button variant="secondary">New Project</Button>
@@ -93,10 +86,7 @@ const LandingActions = ({ isAuthenticated }: { isAuthenticated: boolean }) =>
   ) : (
     <div className="flex flex-wrap items-center gap-3">
       <Link to="/app/invite/accept">
-        <Button variant="primary">
-          Accept Invite
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <Button variant="primary">Accept Invite</Button>
       </Link>
       <Link to="/app/login">
         <Button variant="secondary">Sign In</Button>
@@ -105,173 +95,199 @@ const LandingActions = ({ isAuthenticated }: { isAuthenticated: boolean }) =>
   );
 
 const ProductPreview = () => (
-  <Card
-    variant="accent"
-    className="relative overflow-hidden border-accent-500/20 bg-gradient-to-br from-zinc-900/95 via-zinc-950 to-zinc-950"
-  >
-    <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.1)_0%,transparent_70%)]" />
-
-    <div className="relative space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Project overview</p>
-          <h2 className="mt-2 text-lg font-semibold text-zinc-100">edge-docs</h2>
-          <p className="mt-1 text-sm text-zinc-400">Repo-defined CI for a docs deploy pipeline running on the edge.</p>
-        </div>
-        <Badge variant="accent">main</Badge>
+  <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+    {/* Terminal header */}
+    <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/50 px-4 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="flex gap-1.5 min-w-[54px]">
+          <span className="h-3 w-3 rounded-full bg-zinc-700" />
+          <span className="h-3 w-3 rounded-full bg-zinc-700" />
+          <span className="h-3 w-3 rounded-full bg-zinc-700" />
+        </span>
+        <span className="ml-4 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+          anvil exec --tail edge-docs
+        </span>
       </div>
+      <Badge variant="accent" className="font-mono text-[10px]">
+        branch: main
+      </Badge>
+    </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Queued</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">02</p>
+    {/* Terminal Output Area */}
+    <div className="grid divide-y divide-zinc-800/60 lg:grid-cols-[minmax(300px,380px)_1fr] lg:divide-x lg:divide-y-0">
+      {/* Queue status */}
+      <div className="bg-zinc-900/20 p-5">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-display text-xs font-semibold uppercase tracking-widest text-zinc-100">Queue Status</h3>
+          <span className="font-mono text-[10px] text-zinc-500">SERIALIZED FIFO</span>
         </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Running</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">01</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Last commit</p>
-          <p className="mt-2 font-mono text-sm text-zinc-200">9a8c12e</p>
-        </div>
-      </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-zinc-200">Run queue</p>
-            <Badge>serialized</Badge>
-          </div>
-          <div className="mt-4 space-y-3">
-            {previewRuns.map((run) => (
-              <div key={run.id} className="rounded-xl border border-zinc-800/70 bg-zinc-900/60 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-zinc-100">
-                      {run.id} {run.name}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">{run.detail}</p>
-                  </div>
-                  <StatusPill status={run.status} />
+        <div className="space-y-3">
+          {previewRuns.map((run) => (
+            <div
+              key={run.id}
+              className="group relative -mx-2 flex items-start gap-3 rounded-lg border border-transparent p-2 transition-colors hover:border-zinc-800 hover:bg-zinc-900/40"
+            >
+              <StatusPill status={run.status} className="mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-sm text-zinc-200 transition-colors group-hover:text-accent-400">
+                    {run.id} {run.name}
+                  </p>
                 </div>
+                <p className="mt-0.5 truncate text-xs text-zinc-500">{run.detail}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/90 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-zinc-200">Live logs</p>
-            <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              streaming
-            </span>
-          </div>
-          <div className="mt-4 rounded-xl border border-zinc-800/70 bg-zinc-950/80 p-3 font-mono text-xs leading-6 text-zinc-300">
-            {previewLogs.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="success">build passed</Badge>
-            <Badge variant="success">test passed</Badge>
-            <Badge variant="accent">deploy active</Badge>
+      {/* Live Stream */}
+      <div className="bg-zinc-950 p-5 font-mono text-xs leading-relaxed text-zinc-400 lg:p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-widest text-emerald-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            Live Output
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-zinc-600">ID: RUN_01HQK...</span>
+        </div>
+        <div className="space-y-1.5">
+          {previewLogs.map((line, i) => {
+            const isCmd = line.startsWith("$");
+            const isActive = line.includes("active") || line.includes("uploading");
+            return (
+              <p
+                key={i}
+                className={
+                  isCmd ? "mb-2 mt-4 font-medium text-zinc-100" : isActive ? "text-accent-400" : "text-zinc-400"
+                }
+              >
+                {line}
+              </p>
+            );
+          })}
+          <div className="flex gap-2">
+            <span className="animate-pulse text-accent-400">_</span>
           </div>
         </div>
       </div>
     </div>
-  </Card>
+  </div>
 );
 
 export const LandingPage = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="pb-16">
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="relative overflow-hidden rounded-[2rem] border border-zinc-800/60 bg-gradient-to-b from-zinc-900/70 via-zinc-950 to-zinc-950 px-6 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
-          <div className="pointer-events-none absolute -left-20 top-10 h-52 w-52 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.1)_0%,transparent_70%)]" />
-          <div className="pointer-events-none absolute bottom-0 right-0 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.1)_0%,transparent_70%)]" />
-
-          <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:items-center">
-            <div className="max-w-2xl">
-              <Badge variant="accent">Invite-only beta</Badge>
-              <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-zinc-100 sm:text-4xl">
-                CI that runs on the edge and lives in your repo.
+    <div className="pb-16 pt-8">
+      {/* Hero Section */}
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-24">
+        <div className="relative">
+          <Badge
+            variant="accent"
+            className="mb-6 inline-flex border-accent-500/30 font-mono text-[10px] uppercase tracking-widest"
+          >
+            System Active
+          </Badge>
+          <div className="grid gap-12 lg:grid-cols-[1fr_auto]">
+            <div className="animate-slide-up max-w-4xl">
+              <h1 className="font-display text-5xl font-bold tracking-tight text-zinc-100 sm:text-7xl lg:text-[5rem] lg:leading-[0.95]">
+                <span className="block text-zinc-500">EDGE-NATIVE CI/CD.</span>
+                <span className="block">BUILT FOR VELOCITY.</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300 sm:text-lg">
-                Define your pipeline in <span className="font-mono text-zinc-100">.anvil.yml</span>, push, and watch
-                runs queue and execute — logs streaming in real time.
+            </div>
+            <div className="animate-slide-up flex flex-col justify-end lg:pb-4" style={{ animationDelay: "120ms" }}>
+              <p className="max-w-sm text-base leading-7 text-zinc-400">
+                A streamlined, serialized execution engine built on Cloudflare Durable Objects. No glue services. No
+                yaml bloat.
               </p>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-500">
-                Powered by <span className="text-zinc-300">Cloudflare</span> — Durable Objects, Queues, D1, and Sandbox
-                SDK handle orchestration, storage, and execution.
-              </p>
-
               <div className="mt-8">
                 <LandingActions isAuthenticated={isAuthenticated} />
               </div>
             </div>
-
-            <ProductPreview />
           </div>
+        </div>
+
+        <div className="animate-slide-up mt-16 sm:mt-24" style={{ animationDelay: "240ms" }}>
+          <ProductPreview />
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="max-w-2xl">
-          <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Why anvil</p>
-          <h2 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100">
-            Repo-defined pipelines, ordered runs, and live visibility.
+      {/* Why anvil section */}
+      <section className="mx-auto max-w-7xl border-t border-zinc-800/40 px-4 py-16 sm:px-6 lg:py-24">
+        <div className="max-w-3xl">
+          <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
+            A CI designed for personal project velocity.
           </h2>
+          <p className="mt-4 text-lg text-zinc-400">
+            No complex DAGs. No infrastructure mapping. Just a single execution queue connected to your Cloudflare edge
+            infrastructure.
+          </p>
         </div>
 
-        <dl className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+        <div className="mt-16 grid gap-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           {valueProps.map((feature, i) => (
-            <div key={feature.title} className="animate-slide-up opacity-0" style={{ animationDelay: `${i * 60}ms` }}>
-              <dt className="flex items-center gap-2 text-base font-semibold text-zinc-100">
-                <feature.icon aria-hidden="true" className="h-4 w-4 text-accent-400" />
-                {feature.title}
-              </dt>
-              <dd className="mt-2 text-sm leading-6 text-zinc-400">{feature.description}</dd>
+            <div
+              key={feature.title}
+              className="group relative animate-slide-up opacity-0"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <div className="font-display text-6xl font-black text-zinc-800/50 transition-colors group-hover:text-accent-500/20">
+                0{i + 1}
+              </div>
+              <h3 className="mt-4 font-display text-lg font-semibold tracking-wide text-zinc-100">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">{feature.description}</p>
             </div>
           ))}
-        </dl>
+        </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="rounded-[2rem] border border-zinc-800/60 bg-zinc-900/40 p-6 sm:p-8 lg:p-10">
-          <div className="max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">How it works</p>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100">
-              Three steps from repo to running pipeline.
+      {/* How it works section */}
+      <section className="mx-auto max-w-7xl border-t border-zinc-800/40 px-4 py-16 sm:px-6 lg:py-24">
+        <div className="grid gap-16 lg:grid-cols-[1fr_1.5fr]">
+          <div className="max-w-md">
+            <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
+              Implementation path.
             </h2>
+            <p className="mt-4 leading-relaxed text-zinc-400">
+              Go from an empty queue to a live edge deployment in under three minutes, entirely defined in your git
+              history.
+            </p>
           </div>
 
-          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          <div className="relative space-y-16 border-l border-zinc-800/60 pl-8">
             {workflow.map((item, i) => (
               <div
                 key={item.step}
-                className="animate-slide-up rounded-2xl border border-zinc-800/60 bg-zinc-950/70 p-5 opacity-0"
+                className="relative animate-slide-up opacity-0"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
-                <p className="text-xs font-medium uppercase tracking-widest text-accent-400">{item.step}</p>
-                <h3 className="mt-3 text-xl font-semibold text-zinc-100">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p>
+                <div className="absolute -left-[37px] top-1.5 rounded-full bg-zinc-950 p-1">
+                  <div className="h-2 w-2 rounded-full bg-accent-500" />
+                </div>
+                <p className="mb-2 font-mono text-xs uppercase tracking-widest text-accent-500">{item.step}</p>
+                <h3 className="font-display text-xl font-bold tracking-tight text-zinc-100">{item.title}</h3>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">{item.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
-        <div className="rounded-[2rem] border border-accent-500/20 bg-gradient-to-r from-zinc-900/90 to-zinc-950 px-6 py-6 sm:px-8 sm:py-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent-500/20 bg-accent-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-accent-400">
-              <Lock className="h-3.5 w-3.5" />
-              invite-only access
+      {/* Final CTA */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <div className="border border-zinc-800/60 bg-zinc-900/40 p-8 sm:p-12">
+          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
+            <div className="max-w-xl">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent-500/20 bg-accent-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-accent-400">
+                <Lock className="h-3.5 w-3.5" />
+                invite-only access
+              </div>
+              <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-100">Ready to execute?</h2>
             </div>
-            <LandingActions isAuthenticated={isAuthenticated} />
+            <div className="shrink-0">
+              <LandingActions isAuthenticated={isAuthenticated} />
+            </div>
           </div>
         </div>
       </section>
