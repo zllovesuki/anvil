@@ -15,8 +15,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["./worker-configuration.d.ts"],
-    "baseUrl": "."
+    "types": ["./worker-configuration.d.ts"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/types/**/*.d.ts", "drizzle-*.config.ts"]
 }

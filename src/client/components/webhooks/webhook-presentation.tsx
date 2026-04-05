@@ -1,10 +1,10 @@
 import type { WebhookDeliveryOutcome, WebhookProvider } from "@/contracts";
-import { Container, Github, Gitlab } from "lucide-react";
+import { Container, GitBranch, GitCompareArrows } from "lucide-react";
 import { webhookProviderCatalogList } from "@/lib/webhooks";
 
 const PROVIDER_ICONS: Record<WebhookProvider, React.FC<{ className?: string }>> = {
-  github: Github,
-  gitlab: Gitlab,
+  github: GitBranch,
+  gitlab: GitCompareArrows,
   gitea: Container,
 };
 
