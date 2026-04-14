@@ -19,6 +19,9 @@ test.describe("Profile and sign out", () => {
 
     await livePage.goto("/app/me");
     await livePage.getByRole("button", { name: "Sign Out" }).click();
+    const confirmDialog = livePage.getByRole("dialog", { name: "Sign out?" });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole("button", { name: "Sign Out" }).click();
 
     await livePage.waitForURL("**/app/login");
 
