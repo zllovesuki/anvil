@@ -1,4 +1,4 @@
-ARG SANDBOX_VERSION=0.8.4
+ARG SANDBOX_VERSION=0.8.10
 FROM docker.io/cloudflare/sandbox:${SANDBOX_VERSION}-python
 
 ENV DEBIAN_FRONTEND=noninteractive \
