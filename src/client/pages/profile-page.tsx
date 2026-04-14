@@ -1,6 +1,7 @@
 import { Calendar, KeyRound, Mail, User } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/client/auth";
-import { Button, Card, PageHeader } from "@/client/components/ui";
+import { Button, Card, ConfirmDialog, PageHeader } from "@/client/components/ui";
 import { type AuthMode, formatTimestamp } from "@/client/lib";
 const modeButtonClass = (active: boolean): string =>
   [
@@ -19,6 +20,7 @@ const ModeToggle = ({ currentMode, onChange }: { currentMode: AuthMode; onChange
 );
 export const ProfilePage = () => {
   const { user, canSelectMode, mode, setMode, signOut } = useAuth();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   if (!user) return null;
   return (
     <div className="animate-slide-up space-y-6">
@@ -32,7 +34,7 @@ export const ProfilePage = () => {
               <User className="h-7 w-7" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-semibold text-zinc-100">{user.displayName}</h2>
+              <h1 className="font-display text-xl font-semibold text-zinc-100">{user.displayName}</h1>
               <p className="mt-0.5 text-sm text-zinc-500">@{user.slug}</p>
             </div>
           </div>
@@ -55,14 +57,21 @@ export const ProfilePage = () => {
           </dl>
 
           <div className="mt-6">
-            <Button
-              variant="danger"
-              onClick={() => {
-                void signOut();
-              }}
-            >
+            <Button variant="danger" onClick={() => setConfirmSignOut(true)}>
               Sign Out
             </Button>
+            <ConfirmDialog
+              open={confirmSignOut}
+              onConfirm={() => {
+                setConfirmSignOut(false);
+                void signOut();
+              }}
+              onCancel={() => setConfirmSignOut(false)}
+              title="Sign out?"
+              description="Your local session will be cleared."
+              confirmLabel="Sign Out"
+              variant="danger"
+            />
           </div>
         </Card>
 
@@ -73,7 +82,7 @@ export const ProfilePage = () => {
                 <KeyRound className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-zinc-100">Developer Settings</h3>
+                <h3 className="font-display text-lg font-semibold text-zinc-100">Developer Settings</h3>
                 <p className="mt-1 text-sm text-zinc-500">API transport and session configuration.</p>
               </div>
             </div>

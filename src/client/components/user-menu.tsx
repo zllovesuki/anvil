@@ -2,6 +2,7 @@ import { LogOut, User, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/client/auth";
+import { ConfirmDialog } from "@/client/components/ui/confirm-dialog";
 
 interface UserMenuProps {
   onInvite?(): void;
@@ -11,6 +12,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
   const { user, isAuthenticated, isInitializing, signOut } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-800/70 hover:text-zinc-100"
               onClick={() => {
                 setOpen(false);
-                void signOut();
+                setConfirmSignOut(true);
               }}
             >
               <LogOut className="h-4 w-4 text-zinc-500" />
@@ -121,6 +123,19 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        onConfirm={() => {
+          setConfirmSignOut(false);
+          void signOut();
+        }}
+        onCancel={() => setConfirmSignOut(false)}
+        title="Sign out?"
+        description="Your local session will be cleared."
+        confirmLabel="Sign Out"
+        variant="danger"
+      />
     </div>
   );
 };

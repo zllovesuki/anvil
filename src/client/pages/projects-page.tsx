@@ -4,14 +4,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { StatusPill } from "@/client/components";
-import { Badge, Button, EmptyState, ErrorBanner, PageHeader, Skeleton } from "@/client/components/ui";
+import { Badge, Button, ButtonLink, EmptyState, ErrorBanner, PageHeader, Skeleton } from "@/client/components/ui";
 import { formatApiError, formatProjectUpdatedLabel, getApiClient, inferRepositoryProvider } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
 const countByStatus = (projects: ProjectSummary[], target: RunStatus): number =>
   projects.filter((project) => project.lastRunStatus === target).length;
-
-const pad2 = (n: number) => String(n).padStart(2, "0");
 
 const ProjectCard = ({ project }: { project: ProjectSummary }) => (
   <Link
@@ -113,17 +111,16 @@ export const ProjectsPage = () => {
         label="Workspace"
         title="Projects"
         description={
-          loading
-            ? undefined
-            : `${projects.length} project${projects.length === 1 ? "" : "s"} connected to this workspace.`
+          !loading && projects.length > 0
+            ? `${projects.length} project${projects.length !== 1 ? "s" : ""} \u00b7 ${activeCount} active, ${healthyCount} passing`
+            : undefined
         }
         actions={
           <>
-            <Link to="/app/projects/new">
-              <Button variant="primary" icon={<FolderPlus className="h-4 w-4" />}>
-                New Project
-              </Button>
-            </Link>
+            <ButtonLink to="/app/projects/new" variant="primary">
+              <FolderPlus className="h-4 w-4" />
+              New Project
+            </ButtonLink>
             <Button
               variant="ghost"
               size="sm"
@@ -136,23 +133,6 @@ export const ProjectsPage = () => {
           </>
         }
       />
-
-      {!loading && projects.length > 0 ? (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Total</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-100">{pad2(projects.length)}</p>
-          </div>
-          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Active</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-100">{pad2(activeCount)}</p>
-          </div>
-          <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Passing</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-100">{pad2(healthyCount)}</p>
-          </div>
-        </div>
-      ) : null}
 
       {error ? <ErrorBanner message={error} /> : null}
 
@@ -168,9 +148,9 @@ export const ProjectsPage = () => {
           title="No projects yet"
           description="Create the first repository connection for this workspace."
           action={
-            <Link to="/app/projects/new">
-              <Button variant="primary">Create Project</Button>
-            </Link>
+            <ButtonLink to="/app/projects/new" variant="primary">
+              Create Project
+            </ButtonLink>
           }
         />
       ) : (

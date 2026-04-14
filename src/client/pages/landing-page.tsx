@@ -1,8 +1,7 @@
 import { Lock } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { StatusPill } from "@/client/components";
-import { Badge, Button } from "@/client/components/ui";
+import { Badge, ButtonLink } from "@/client/components/ui";
 
 const valueProps = [
   {
@@ -76,26 +75,26 @@ const previewLogs = [
 const LandingActions = ({ isAuthenticated }: { isAuthenticated: boolean }) =>
   isAuthenticated ? (
     <div className="flex flex-wrap items-center gap-3">
-      <Link to="/app/projects">
-        <Button variant="primary">Go to Dashboard</Button>
-      </Link>
-      <Link to="/app/projects/new">
-        <Button variant="secondary">New Project</Button>
-      </Link>
+      <ButtonLink to="/app/projects" variant="primary">
+        Go to Dashboard
+      </ButtonLink>
+      <ButtonLink to="/app/projects/new" variant="secondary">
+        New Project
+      </ButtonLink>
     </div>
   ) : (
     <div className="flex flex-wrap items-center gap-3">
-      <Link to="/app/invite/accept">
-        <Button variant="primary">Accept Invite</Button>
-      </Link>
-      <Link to="/app/login">
-        <Button variant="secondary">Sign In</Button>
-      </Link>
+      <ButtonLink to="/app/invite/accept" variant="primary">
+        Accept Invite
+      </ButtonLink>
+      <ButtonLink to="/app/login" variant="secondary">
+        Sign In
+      </ButtonLink>
     </div>
   );
 
 const ProductPreview = () => (
-  <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+  <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
     {/* Terminal header */}
     <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/50 px-4 py-2.5">
       <div className="flex items-center gap-2">
@@ -118,7 +117,7 @@ const ProductPreview = () => (
       {/* Queue status */}
       <div className="bg-zinc-900/20 p-5">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="font-display text-xs font-semibold uppercase tracking-widest text-zinc-100">Queue Status</h3>
+          <p className="font-display text-xs font-semibold uppercase tracking-widest text-zinc-100">Queue Status</p>
           <span className="font-mono text-[10px] text-zinc-500">SERIALIZED FIFO</span>
         </div>
 
@@ -219,7 +218,7 @@ export const LandingPage = () => {
           <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
             A CI designed for personal project velocity.
           </h2>
-          <p className="mt-4 text-lg text-zinc-400">
+          <p className="mt-4 max-w-xl text-lg text-zinc-400">
             No complex DAGs. No infrastructure mapping. Just a single execution queue connected to your Cloudflare edge
             infrastructure.
           </p>
@@ -229,10 +228,10 @@ export const LandingPage = () => {
           {valueProps.map((feature, i) => (
             <div
               key={feature.title}
-              className="group relative animate-slide-up opacity-0"
+              className="group relative animate-slide-up"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="font-display text-6xl font-black text-zinc-800/50 transition-colors group-hover:text-accent-500/20">
+              <div className="font-display text-6xl font-black text-zinc-800/50 transition-colors group-hover:text-zinc-700/60">
                 0{i + 1}
               </div>
               <h3 className="mt-4 font-display text-lg font-semibold tracking-wide text-zinc-100">{feature.title}</h3>
@@ -257,12 +256,8 @@ export const LandingPage = () => {
 
           <div className="relative space-y-16 border-l border-zinc-800/60 pl-8">
             {workflow.map((item, i) => (
-              <div
-                key={item.step}
-                className="relative animate-slide-up opacity-0"
-                style={{ animationDelay: `${i * 60}ms` }}
-              >
-                <div className="absolute -left-[37px] top-1.5 rounded-full bg-zinc-950 p-1">
+              <div key={item.step} className="relative animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <div className="absolute -left-[37px] top-1.5 rounded-full bg-canvas p-1">
                   <div className="h-2 w-2 rounded-full bg-accent-500" />
                 </div>
                 <p className="mb-2 font-mono text-xs uppercase tracking-widest text-accent-500">{item.step}</p>

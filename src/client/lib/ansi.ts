@@ -24,22 +24,22 @@ export interface AnsiProcessor {
 // ---------------------------------------------------------------------------
 
 const COLORS_16: readonly string[] = [
-  "#3f3f46", // 0  black        (zinc-700)
+  "#423f42", // 0  black        (zinc-700)
   "#f87171", // 1  red          (red-400)
   "#4ade80", // 2  green        (green-400)
   "#facc15", // 3  yellow       (yellow-400)
-  "#60a5fa", // 4  blue         (blue-400)
+  "#56a6f3", // 4  blue         (accent-400)
   "#c084fc", // 5  magenta      (purple-400)
   "#22d3ee", // 6  cyan         (cyan-400)
-  "#d4d4d8", // 7  white        (zinc-300)
-  "#71717a", // 8  bright black (zinc-500)
+  "#d6d4d7", // 7  white        (zinc-300)
+  "#747178", // 8  bright black (zinc-500)
   "#fca5a5", // 9  bright red   (red-300)
   "#86efac", // 10 bright green (green-300)
   "#fde047", // 11 bright yellow(yellow-300)
   "#93c5fd", // 12 bright blue  (blue-300)
   "#d8b4fe", // 13 bright mag.  (purple-300)
   "#67e8f9", // 14 bright cyan  (cyan-300)
-  "#fafafa", // 15 bright white (zinc-50)
+  "#fafaf9", // 15 bright white (zinc-50)
 ];
 
 function color256(n: number): string | null {

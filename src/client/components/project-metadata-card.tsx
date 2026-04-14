@@ -1,5 +1,5 @@
 import type { ProjectDetail } from "@/contracts";
-import { Clock, FileCode, GitBranch, Globe, Settings } from "lucide-react";
+import { Clock, FileCode, GitBranch, Globe, Settings, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "@/client/components/status-pill";
 import { Card } from "@/client/components/ui";
@@ -16,7 +16,7 @@ export const ProjectMetadataCard = ({
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Project overview</p>
-        <h1 className="mt-2 text-xl font-semibold text-zinc-100">{project.name}</h1>
+        <h1 className="mt-2 font-display text-xl font-semibold text-zinc-100">{project.name}</h1>
         <p className="mt-0.5 text-sm text-zinc-500">
           {project.ownerSlug}/{project.projectSlug}
         </p>
@@ -36,6 +36,10 @@ export const ProjectMetadataCard = ({
       <p className="flex items-center gap-2">
         <FileCode className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
         <span className="font-mono text-xs">{project.configPath}</span>
+      </p>
+      <p className="flex items-center gap-2">
+        <Zap className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        {project.dispatchMode === "queue" ? "Queue" : "Workflows"}
       </p>
       <p className="flex items-center gap-2 text-zinc-500">
         <Clock className="h-3.5 w-3.5 shrink-0" />

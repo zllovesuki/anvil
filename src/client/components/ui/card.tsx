@@ -18,7 +18,7 @@ export const Card = ({ variant = "default", interactive = false, children, class
     className={[
       "rounded-2xl border p-5 sm:p-6",
       VARIANT_CLASSES[variant],
-      interactive && "hover:-translate-y-0.5 transition-transform cursor-pointer",
+      interactive && "hover:-translate-y-0.5 hover:shadow-sm transition-[transform,box-shadow] cursor-pointer",
       className,
     ]
       .filter(Boolean)

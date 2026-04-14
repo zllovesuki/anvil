@@ -20,7 +20,7 @@ interface HeaderProps {
 
 const HeaderBrand = ({ href, subtitle }: { href: string; subtitle: string }) => (
   <Link to={href} className="flex items-center gap-3 transition-opacity hover:opacity-80">
-    <span className="inline-grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 shadow-sm shadow-accent-500/10">
+    <span className="inline-grid h-9 w-9 place-items-center rounded-lg bg-accent-500">
       <Hammer className="h-5 w-5 text-white" />
     </span>
     <span className="hidden sm:block">
@@ -62,7 +62,7 @@ export const Header = ({ variant = "app", onInvite }: HeaderProps) => {
 
   if (variant === "public") {
     return (
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-800/60 bg-zinc-950/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-zinc-800/60 bg-zinc-900/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <HeaderBrand href="/" subtitle="Edge-native CI" />
           <PublicHeaderActions
@@ -78,7 +78,7 @@ export const Header = ({ variant = "app", onInvite }: HeaderProps) => {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-800/60 bg-zinc-950/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-zinc-800/60 bg-zinc-900/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-5">
           <HeaderBrand href={isAuthenticated ? "/app/projects" : "/"} subtitle="Edge-native CI" />

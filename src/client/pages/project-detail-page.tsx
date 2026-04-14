@@ -10,14 +10,6 @@ import { useToast } from "@/client/toast";
 const ProjectDetailSkeleton = () => (
   <div className="animate-slide-up space-y-5">
     <Skeleton className="h-5 w-48" />
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="mt-3 h-7 w-10" />
-        </div>
-      ))}
-    </div>
     <div className="grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]">
       <div className="space-y-4">
         <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-5">
@@ -213,8 +205,14 @@ export const ProjectDetailPage = () => {
   };
   const hasCurrentDetail = detail !== null && loadedProjectKey === projectKey;
   const currentError = errorProjectKey === projectKey ? error : null;
+  const pageTitle = detail?.project.name ?? projectId?.slice(0, 8) ?? "";
   if (loading || (projectKey !== null && !hasCurrentDetail && currentError === null)) {
-    return <ProjectDetailSkeleton />;
+    return (
+      <>
+        <h1 className="sr-only">{pageTitle}</h1>
+        <ProjectDetailSkeleton />
+      </>
+    );
   }
   if (currentError && !hasCurrentDetail) {
     return (
@@ -225,29 +223,10 @@ export const ProjectDetailPage = () => {
     );
   }
   if (!hasCurrentDetail || !detail) return null;
-  const { project, activeRun, pendingRuns } = detail;
+  const { project } = detail;
   return (
     <div className="animate-slide-up space-y-5">
       <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: project.name }]} />
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Dispatch</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">{project.dispatchMode}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Runs loaded</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">{String(runs.length).padStart(2, "0")}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Active</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">{activeRun ? "01" : "00"}</p>
-        </div>
-        <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Pending</p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-100">{String(pendingRuns.length).padStart(2, "0")}</p>
-        </div>
-      </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]">
         {/* Left column */}
@@ -261,7 +240,7 @@ export const ProjectDetailPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Run history</p>
-              <h2 className="mt-1 text-lg font-semibold text-zinc-100">Recent runs</h2>
+              <h2 className="mt-1 font-display text-lg font-semibold text-zinc-100">Recent runs</h2>
             </div>
             <div className="flex items-center gap-2">
               <Button

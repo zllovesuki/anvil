@@ -1,10 +1,10 @@
 import type { DispatchMode, ProjectConfigSummary } from "@/contracts";
 import { Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { LoadingPanel } from "@/client/components";
-import { Badge, Breadcrumbs, Button, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
+import { Badge, Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
 import { formatApiError, getApiClient, inferRepositoryProvider } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
@@ -209,9 +209,9 @@ export const ProjectSettingsPage = () => {
                 >
                   Save Changes
                 </Button>
-                <Link to={`/app/projects/${projectId}`}>
-                  <Button variant="secondary">Cancel</Button>
-                </Link>
+                <ButtonLink to={`/app/projects/${projectId}`} variant="ghost">
+                  Cancel
+                </ButtonLink>
               </div>
             </form>
           </Card>

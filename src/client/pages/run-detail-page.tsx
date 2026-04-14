@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { LoadingPanel, StatusPill, LogViewer, StepRow } from "@/client/components";
-import { Breadcrumbs, Button, Card, ErrorBanner } from "@/client/components/ui";
+import { Breadcrumbs, Button, Card, ConfirmDialog, ErrorBanner } from "@/client/components/ui";
 import { useLogStream } from "@/client/hooks";
 import {
   TRIGGER_TYPE_LABELS,
@@ -30,6 +30,7 @@ export const RunDetailPage = () => {
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorRunKey, setErrorRunKey] = useState<string | null>(null);
   // overview is now header-integrated, no collapse state needed
@@ -225,8 +226,14 @@ export const RunDetailPage = () => {
       }
     }
   };
+  const pageTitle = `Run ${runId?.slice(0, 12) ?? ""}`;
   if (loading || (runKey !== null && !hasCurrentDetail && currentError === null)) {
-    return <LoadingPanel label="Loading run..." />;
+    return (
+      <>
+        <h1 className="sr-only">{pageTitle}</h1>
+        <LoadingPanel label="Loading run..." />
+      </>
+    );
   }
   if (currentError && !hasCurrentDetail) {
     return (
@@ -245,6 +252,7 @@ export const RunDetailPage = () => {
   const isCancelPending = run.status === "cancel_requested" || run.status === "canceling";
   return (
     <div className="animate-slide-up space-y-5">
+      <h1 className="sr-only">{pageTitle}</h1>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 pb-1">
         <Breadcrumbs
           items={[
@@ -303,7 +311,7 @@ export const RunDetailPage = () => {
           {/* Steps section */}
           {steps.length > 0 ? (
             <Card>
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-100">
+              <h2 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-zinc-100">
                 <Terminal className="h-4 w-4 text-zinc-400" />
                 Steps
               </h2>
@@ -317,18 +325,30 @@ export const RunDetailPage = () => {
 
           {/* Cancel button */}
           {canCancel ? (
-            <Button
-              variant="danger"
-              className="w-full"
-              disabled={canceling || isCancelPending}
-              loading={canceling || isCancelPending}
-              icon={!(canceling || isCancelPending) ? <XCircle className="h-4 w-4" /> : undefined}
-              onClick={() => {
-                void handleCancel();
-              }}
-            >
-              Cancel Run
-            </Button>
+            <>
+              <Button
+                variant="danger"
+                className="w-full"
+                disabled={canceling || isCancelPending}
+                loading={canceling || isCancelPending}
+                icon={!(canceling || isCancelPending) ? <XCircle className="h-4 w-4" /> : undefined}
+                onClick={() => setConfirmCancelOpen(true)}
+              >
+                Cancel Run
+              </Button>
+              <ConfirmDialog
+                open={confirmCancelOpen}
+                onConfirm={() => {
+                  setConfirmCancelOpen(false);
+                  void handleCancel();
+                }}
+                onCancel={() => setConfirmCancelOpen(false)}
+                title="Cancel this run?"
+                description="This run will be cancelled. This action cannot be undone."
+                confirmLabel="Cancel Run"
+                variant="danger"
+              />
+            </>
           ) : null}
         </div>
 

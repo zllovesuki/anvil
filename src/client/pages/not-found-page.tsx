@@ -1,6 +1,5 @@
 import { FileQuestion } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Button } from "@/client/components/ui";
+import { ButtonLink } from "@/client/components/ui";
 
 export const NotFoundPage = () => (
   <div className="flex min-h-[60vh] animate-slide-up flex-col items-center justify-center text-center">
@@ -11,8 +10,8 @@ export const NotFoundPage = () => (
     <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
       The page you're looking for doesn't exist or has been moved.
     </p>
-    <Link to="/" className="mt-6">
-      <Button variant="secondary">Back to home</Button>
-    </Link>
+    <ButtonLink to="/" variant="secondary" className="mt-6">
+      Back to home
+    </ButtonLink>
   </div>
 );

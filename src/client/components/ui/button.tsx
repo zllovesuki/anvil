@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Link, type LinkProps } from "react-router-dom";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md";
@@ -11,8 +12,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:
-    "bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10 hover:from-accent-400 hover:to-accent-500 hover:shadow-md hover:shadow-accent-500/15 active:scale-[0.98] transition-transform",
+  primary: "bg-accent-600 text-white hover:bg-accent-500 active:scale-[0.98] transition-transform",
   secondary:
     "border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60 hover:text-zinc-100 active:scale-[0.98] transition-transform",
   danger:
@@ -51,4 +51,25 @@ export const Button = ({
     {icon}
     {loading ? "Loading..." : children}
   </button>
+);
+
+interface ButtonLinkProps extends LinkProps {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+}
+
+export const ButtonLink = ({ variant = "secondary", size = "md", className, children, ...rest }: ButtonLinkProps) => (
+  <Link
+    className={[
+      "inline-flex items-center justify-center gap-2 font-medium",
+      SIZE_CLASSES[size],
+      VARIANT_CLASSES[variant],
+      className,
+    ]
+      .filter(Boolean)
+      .join(" ")}
+    {...rest}
+  >
+    {children}
+  </Link>
 );

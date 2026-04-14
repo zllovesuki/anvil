@@ -40,7 +40,7 @@ describe("parseAnsi", () => {
 
   it("parses standard background colors (40–47)", () => {
     const spans = parseAnsi("\x1b[44mblue bg\x1b[0m");
-    expect(spans[0]!.bg).toBe("#60a5fa");
+    expect(spans[0]!.bg).toBe("#56a6f3");
   });
 
   it("parses bright background colors (100–107)", () => {

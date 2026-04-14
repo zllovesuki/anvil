@@ -1,9 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { MIN_PASSWORD_LENGTH } from "@/contracts";
 import { useAuth } from "@/client/auth";
-import { Button, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
+import { Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
 import { buildProjectSlug, formatApiError, getApiClient } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
@@ -184,11 +184,9 @@ export const AcceptInvitePage = () => {
             >
               Create Account
             </Button>
-            <Link to="/app/login">
-              <Button variant="ghost" size="sm">
-                Already have an account?
-              </Button>
-            </Link>
+            <ButtonLink to="/app/login" variant="ghost" size="sm">
+              Already have an account?
+            </ButtonLink>
           </div>
         </form>
       </Card>
