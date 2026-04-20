@@ -19,13 +19,17 @@ interface HeaderProps {
 }
 
 const HeaderBrand = ({ href, subtitle }: { href: string; subtitle: string }) => (
-  <Link to={href} className="flex items-center gap-3 transition-opacity hover:opacity-80">
-    <span className="inline-grid h-9 w-9 place-items-center rounded-lg bg-accent-500">
-      <Hammer className="h-5 w-5 text-white" />
+  <Link to={href} className="group flex items-center gap-3 transition-opacity hover:opacity-80">
+    <span className="inline-grid h-9 w-9 place-items-center">
+      <Hammer
+        className="h-6 w-6 text-accent-400 transition-transform duration-200 group-hover:-rotate-6"
+        strokeWidth={2}
+        aria-hidden="true"
+      />
     </span>
     <span className="hidden sm:block">
       <strong className="block font-display text-sm font-semibold text-zinc-100">anvil</strong>
-      <small className="block text-xs text-zinc-500">{subtitle}</small>
+      <small className="block text-xs text-zinc-400">{subtitle}</small>
     </span>
   </Link>
 );
