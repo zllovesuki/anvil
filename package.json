@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@ansi-tools/parser": "^1.0.15",
-    "@cloudflare/sandbox": "^0.8.4",
+    "@cloudflare/sandbox": "^0.8.11",
     "@cloudflare/util-en-garde": "^8.0.13",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.10",
