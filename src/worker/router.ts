@@ -8,6 +8,7 @@ import { HttpError, toErrorResponse } from "@/worker/http";
 import { createLogger } from "@/worker/services";
 
 const logger = createLogger("worker.router");
+const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
 export const app = new Hono<AppEnv>();
 
@@ -20,11 +21,12 @@ const buildContentSecurityPolicy = (requestUrl: string): string => {
     "form-action 'self'",
     "frame-ancestors 'none'",
     "object-src 'none'",
-    "script-src 'self'",
+    `script-src 'self' ${TURNSTILE_ORIGIN}`,
     "style-src 'self' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self'",
-    `connect-src 'self' ws://${host} wss://${host}`,
+    `connect-src 'self' ${TURNSTILE_ORIGIN} ws://${host} wss://${host}`,
+    `frame-src ${TURNSTILE_ORIGIN}`,
     "manifest-src 'self'",
     "worker-src 'self'",
   ].join("; ");

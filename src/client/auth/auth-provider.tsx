@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (mode === "live") {
         try {
-          await getApiClient(mode).checkAppConfig();
+          await getApiClient(mode).getAppConfig();
         } catch (error) {
           if (error instanceof ApiError && error.code === "encryption_not_configured") {
             if (!canceled) {

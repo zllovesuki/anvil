@@ -7,6 +7,7 @@ import {
   DEFAULT_DISPATCH_MODE,
   UpdateProjectRequest,
   GetMeResponse,
+  PublicAppConfigResponse,
   GetProjectRunsResponse,
   GetProjectsResponse,
   GetProjectWebhooksResponse,
@@ -48,7 +49,11 @@ import {
 import type { MockProjectRecord } from "./mock/types";
 const MOCK_INVITE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const createMockApiClient = (): ApiClient => ({
-  async checkAppConfig() {},
+  async getAppConfig() {
+    return PublicAppConfigResponse.assertDecode({
+      turnstileSiteKey: null,
+    });
+  },
 
   async login(payload) {
     const body = LoginRequest.assertDecode(payload);

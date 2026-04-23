@@ -44,6 +44,8 @@ const PROJECT_SETTLE_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 1_000;
 const NPX_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx";
 const VITE_BIN_PATH = resolve(REPO_ROOT, "node_modules/vite/bin/vite.js");
+const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
+const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
 export interface BootstrapInviteSeedResult {
   mode: "local" | "remote";
@@ -55,7 +57,7 @@ export interface BootstrapInviteSeedResult {
   dryRun: boolean;
 }
 
-export type OperatorCredentials = Omit<AcceptInviteRequest, "token">;
+export type OperatorCredentials = Omit<AcceptInviteRequest, "token" | "turnstileToken">;
 export type SessionId = LoginResponse["sessionId"];
 export type ProjectRecord = ProjectResponse["project"];
 export type ProjectId = ProjectRecord["id"];
@@ -235,6 +237,8 @@ export const startDevServer = async (persistTo: string): Promise<IntegrationCont
     env: {
       ...process.env,
       ANVIL_PERSIST_STATE_PATH: persistTo,
+      TURNSTILE_SITE_KEY: TURNSTILE_TEST_SITE_KEY,
+      TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET_KEY,
     },
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
@@ -353,6 +357,7 @@ export const acceptBootstrapInvite = async (
     displayName: credentials.displayName,
     slug: credentials.slug,
     password: credentials.password,
+    turnstileToken: "test-turnstile-token",
   } satisfies AcceptInviteRequest;
 
   return await apiFetch<LoginResponse>(baseUrl, "/api/public/auth/invite/accept", {
@@ -368,6 +373,7 @@ export const login = async (baseUrl: string, credentials: OperatorCredentials): 
   const body = {
     email: credentials.email,
     password: credentials.password,
+    turnstileToken: "test-turnstile-token",
   } satisfies LoginRequest;
 
   return await apiFetch<LoginResponse>(baseUrl, "/api/public/auth/login", {

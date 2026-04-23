@@ -2,15 +2,26 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/client/auth";
+import { TurnstileWidget } from "@/client/components";
 import { Button, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
-import { formatApiError } from "@/client/lib";
+import { formatApiError, getApiClient } from "@/client/lib";
 import { MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD } from "@/client/lib/mock";
+
+const MOCK_TURNSTILE_TOKEN = "mock-turnstile-token";
+const TURNSTILE_UNAVAILABLE_MESSAGE = "Human verification is temporarily unavailable.";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { canSelectMode, isAuthenticated, isInitializing, mode, signIn } = useAuth();
   const [email, setEmail] = useState(() => (mode === "mock" ? MOCK_DEMO_EMAIL : ""));
   const [password, setPassword] = useState(() => (mode === "mock" ? MOCK_DEMO_PASSWORD : ""));
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(() =>
+    mode === "mock" ? MOCK_TURNSTILE_TOKEN : null,
+  );
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileConfigError, setTurnstileConfigError] = useState<string | null>(null);
+  const [loadingTurnstileConfig, setLoadingTurnstileConfig] = useState(mode === "live");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,9 +36,59 @@ export const LoginPage = () => {
     setPassword("");
   }, [mode]);
 
+  useEffect(() => {
+    if (mode !== "live") {
+      setTurnstileSiteKey(null);
+      setTurnstileToken(MOCK_TURNSTILE_TOKEN);
+      setTurnstileConfigError(null);
+      setLoadingTurnstileConfig(false);
+      return;
+    }
+
+    let canceled = false;
+
+    setTurnstileSiteKey(null);
+    setTurnstileToken(null);
+    setTurnstileConfigError(null);
+    setLoadingTurnstileConfig(true);
+
+    void getApiClient(mode)
+      .getAppConfig()
+      .then((config) => {
+        if (canceled) {
+          return;
+        }
+
+        if (!config.turnstileSiteKey) {
+          setTurnstileConfigError(TURNSTILE_UNAVAILABLE_MESSAGE);
+          return;
+        }
+
+        setTurnstileSiteKey(config.turnstileSiteKey);
+      })
+      .catch((reason: unknown) => {
+        if (canceled) {
+          return;
+        }
+
+        setTurnstileConfigError(formatApiError(reason));
+      })
+      .finally(() => {
+        if (!canceled) {
+          setLoadingTurnstileConfig(false);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [mode]);
+
   if (!isInitializing && isAuthenticated) {
     return <Navigate to="/app/projects" replace />;
   }
+
+  const isTurnstileBlocked = mode === "live" && (loadingTurnstileConfig || !turnstileSiteKey || !turnstileToken);
 
   return (
     <div className="mx-auto max-w-3xl animate-slide-up space-y-6">
@@ -47,15 +108,26 @@ export const LoginPage = () => {
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
+            const nextTurnstileToken = mode === "mock" ? MOCK_TURNSTILE_TOKEN : turnstileToken;
+
+            if (!nextTurnstileToken) {
+              setError("Human verification failed. Please try again.");
+              return;
+            }
+
             setSubmitting(true);
             setError(null);
 
-            void signIn({ email, password })
+            void signIn({ email, password, turnstileToken: nextTurnstileToken })
               .then(() => {
                 navigate("/app/projects", { replace: true });
               })
               .catch((reason: unknown) => {
                 setError(formatApiError(reason));
+                if (mode === "live") {
+                  setTurnstileToken(null);
+                  setTurnstileResetKey((current) => current + 1);
+                }
               })
               .finally(() => {
                 setSubmitting(false);
@@ -82,6 +154,19 @@ export const LoginPage = () => {
             required
           />
 
+          {mode === "live" ? (
+            loadingTurnstileConfig ? null : turnstileSiteKey ? (
+              <TurnstileWidget
+                action="login"
+                onTokenChange={setTurnstileToken}
+                resetKey={turnstileResetKey}
+                siteKey={turnstileSiteKey}
+              />
+            ) : (
+              <ErrorBanner message={turnstileConfigError ?? TURNSTILE_UNAVAILABLE_MESSAGE} />
+            )
+          ) : null}
+
           {error ? <ErrorBanner message={error} /> : null}
 
           <div className="flex items-center justify-between gap-3 pt-1">
@@ -89,7 +174,7 @@ export const LoginPage = () => {
               variant="primary"
               size="sm"
               type="submit"
-              disabled={submitting || isInitializing}
+              disabled={submitting || isInitializing || isTurnstileBlocked}
               loading={submitting}
               icon={!submitting ? <ArrowRight className="h-4 w-4" /> : undefined}
             >

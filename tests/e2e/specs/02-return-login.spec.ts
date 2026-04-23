@@ -8,7 +8,9 @@ test.describe("Return login", () => {
     await livePage.getByLabel("Email").fill(operatorCredentials.email);
     await livePage.getByLabel("Password", { exact: true }).fill(operatorCredentials.password);
 
-    await livePage.getByRole("button", { name: "Sign In" }).click();
+    const signInButton = livePage.getByRole("button", { name: "Sign In" });
+    await expect(signInButton).toBeEnabled({ timeout: 15_000 });
+    await signInButton.click();
 
     await livePage.waitForURL("**/app/projects");
     await expect(livePage.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();

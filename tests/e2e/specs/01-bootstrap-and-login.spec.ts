@@ -25,6 +25,7 @@ test.describe("Bootstrap invite acceptance", () => {
     await livePage.getByLabel("Password", { exact: true }).fill(operatorCredentials.password);
     await livePage.getByLabel("Confirm password").fill(operatorCredentials.password);
 
+    await expect(submitButton).toBeEnabled({ timeout: 15_000 });
     await submitButton.click();
 
     await livePage.waitForURL("**/app/projects");

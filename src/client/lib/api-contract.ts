@@ -2,6 +2,7 @@ import type {
   CreateWebhookRequest,
   CreateInviteResponse,
   GetMeResponse,
+  PublicAppConfigResponse,
   GetProjectRunsResponse,
   GetProjectsResponse,
   GetProjectWebhooksResponse,
@@ -19,7 +20,7 @@ import type {
 } from "@/contracts";
 
 export interface ApiClient {
-  checkAppConfig(): Promise<void>;
+  getAppConfig(): Promise<PublicAppConfigResponse>;
   login(payload: unknown): Promise<LoginResponse>;
   logout(): Promise<void>;
   getMe(): Promise<GetMeResponse>;

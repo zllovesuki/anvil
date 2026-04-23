@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { SELF } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
@@ -26,14 +27,27 @@ const createInviteViaRoute = async (sessionId: string, expiresInHours?: number) 
     body: JSON.stringify(expiresInHours === undefined ? {} : { expiresInHours }),
   });
 
-const acceptInviteViaRoute = async (payload: AcceptInviteRequest) =>
-  await fetchJson<LoginResponse>("/api/public/auth/invite/accept", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(payload),
-  });
+const acceptInviteViaRoute = async (payload: Omit<AcceptInviteRequest, "turnstileToken">) =>
+  await (async () => {
+    const response = await SELF.fetch("http://127.0.0.1/api/public/auth/invite/accept", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        ...payload,
+        turnstileToken: "test-turnstile-token",
+      }),
+    });
+    const text = await response.text();
+
+    return {
+      response,
+      status: response.status,
+      body: text ? (JSON.parse(text) as LoginResponse) : null,
+      text,
+    };
+  })();
 
 const logoutViaRoute = async (sessionId?: string) =>
   await fetchJson("/api/public/auth/logout", {

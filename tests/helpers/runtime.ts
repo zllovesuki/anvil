@@ -30,6 +30,9 @@ const d1MigrationFiles = import.meta.glob("../../drizzle/d1/*.sql", {
   eager: true,
 }) as Record<string, string>;
 
+const DEFAULT_TEST_ORIGIN = "https://example.com";
+const LOOPBACK_TEST_ORIGIN = "http://127.0.0.1";
+
 interface MigrationJournalEntry {
   tag: string;
 }
@@ -208,8 +211,12 @@ export const authHeaders = (sessionId: string, headers?: HeadersInit): Headers =
   return result;
 };
 
-export const fetchJson = async <T>(path: string, init: RequestInit = {}): Promise<JsonFetchResult<T>> => {
-  const response = await SELF.fetch(`https://example.com${path}`, init);
+export const fetchJsonFromOrigin = async <T>(
+  origin: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<JsonFetchResult<T>> => {
+  const response = await SELF.fetch(`${origin}${path}`, init);
   const text = await response.text();
 
   return {
@@ -220,15 +227,19 @@ export const fetchJson = async <T>(path: string, init: RequestInit = {}): Promis
   };
 };
 
+export const fetchJson = async <T>(path: string, init: RequestInit = {}): Promise<JsonFetchResult<T>> =>
+  await fetchJsonFromOrigin(DEFAULT_TEST_ORIGIN, path, init);
+
 export const loginViaRoute = async (
   credentials: Pick<SeededUser, "email" | "password">,
 ): Promise<JsonFetchResult<LoginResponse>> => {
   const body = {
     email: credentials.email,
     password: credentials.password,
+    turnstileToken: "test-turnstile-token",
   } satisfies LoginRequest;
 
-  return fetchJson("/api/public/auth/login", {
+  return await fetchJsonFromOrigin<LoginResponse>(LOOPBACK_TEST_ORIGIN, "/api/public/auth/login", {
     method: "POST",
     headers: {
       "content-type": "application/json; charset=utf-8",

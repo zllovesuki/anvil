@@ -10,6 +10,7 @@ export * from "@/client/components/project-metadata-card";
 export * from "@/client/components/run-row";
 export * from "@/client/components/status-pill";
 export * from "@/client/components/step-row";
+export * from "@/client/components/turnstile-widget";
 export * from "@/client/components/ui";
 export * from "@/client/components/user-menu";
 export * from "@/client/components/webhooks";

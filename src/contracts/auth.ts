@@ -17,6 +17,7 @@ export const LoginRequest = eg.exactStrict(
   eg.object({
     email: eg.string,
     password: eg.string,
+    turnstileToken: eg.string,
   }),
 );
 export type LoginRequest = TypeFromCodec<typeof LoginRequest>;
@@ -46,9 +47,17 @@ export const AcceptInviteRequest = eg.exactStrict(
     displayName: eg.string,
     slug: OwnerSlug,
     password: eg.string,
+    turnstileToken: eg.string,
   }),
 );
 export type AcceptInviteRequest = TypeFromCodec<typeof AcceptInviteRequest>;
+
+export const PublicAppConfigResponse = eg.exactStrict(
+  eg.object({
+    turnstileSiteKey: eg.union([eg.string, eg.null]),
+  }),
+);
+export type PublicAppConfigResponse = TypeFromCodec<typeof PublicAppConfigResponse>;
 
 export const CreateInviteRequest = eg.exactStrict(
   eg.object({

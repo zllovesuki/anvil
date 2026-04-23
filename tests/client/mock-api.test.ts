@@ -59,6 +59,7 @@ describe("mock api demo workspace", () => {
     const loginResponse = await client.login({
       email: MOCK_DEMO_EMAIL,
       password: MOCK_DEMO_PASSWORD,
+      turnstileToken: "mock-turnstile-token",
     });
 
     setStoredSessionId(loginResponse.sessionId);
@@ -74,6 +75,7 @@ describe("mock api demo workspace", () => {
     const loginResponse = await client.login({
       email: "someone@example.com",
       password: "pw",
+      turnstileToken: "mock-turnstile-token",
     });
 
     setStoredSessionId(loginResponse.sessionId);
@@ -102,6 +104,7 @@ describe("mock api demo workspace", () => {
     const loginResponse = await client.login({
       email: MOCK_DEMO_EMAIL,
       password: MOCK_DEMO_PASSWORD,
+      turnstileToken: "mock-turnstile-token",
     });
 
     setStoredSessionId(loginResponse.sessionId);

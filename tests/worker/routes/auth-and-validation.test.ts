@@ -10,8 +10,10 @@ describe("worker routes", () => {
     it("reports app encryption configuration health on the public config route", async () => {
       const result = await fetchJson("/api/public/app-config");
 
-      expect(result.status).toBe(204);
-      expect(result.text).toBe("");
+      expect(result.status).toBe(200);
+      expect(result.body).toEqual({
+        turnstileSiteKey: "1x00000000000000000000AA",
+      });
     });
 
     it("rejects private routes without a valid session", async () => {

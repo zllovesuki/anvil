@@ -6,6 +6,7 @@ import {
   CreateProjectRequest,
   UpdateProjectRequest,
   GetMeResponse,
+  PublicAppConfigResponse,
   GetProjectRunsResponse,
   GetProjectsResponse,
   GetProjectWebhooksResponse,
@@ -25,10 +26,11 @@ import type { ApiClient } from "@/client/lib/api-contract";
 import { request } from "@/client/lib/live-api-request";
 
 export const createLiveApiClient = (): ApiClient => ({
-  async checkAppConfig() {
-    await request({
+  getAppConfig() {
+    return request({
       path: "/api/public/app-config",
       method: "GET",
+      decode: (value) => PublicAppConfigResponse.assertDecode(value),
     });
   },
 

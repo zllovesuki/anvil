@@ -13,7 +13,7 @@ import { getConfig } from "@/worker/config";
 import { HttpError, parseJson } from "@/worker/http";
 import { serializeUserSummary } from "@/worker/presentation/serializers";
 import { enforcePublicInviteAcceptRateLimit, enforcePublicLoginRateLimit } from "@/worker/security/rate-limit";
-import { createLogger, generateDurableEntityId, hashSha256 } from "@/worker/services";
+import { createLogger, generateDurableEntityId, hashSha256, verifyTurnstileToken } from "@/worker/services";
 import { assertValidPassword, assertValidSlug, normalizeDisplayName, normalizeEmailAddress } from "@/worker/validation";
 
 const logger = createLogger("worker.auth");
@@ -32,6 +32,33 @@ interface AcceptedUserRow {
 const isConstraintError = (error: unknown, messageFragment: string): boolean =>
   error instanceof Error && error.message.includes(messageFragment);
 
+const assertTurnstileVerified = async (
+  c: AppContext,
+  token: string,
+  expectedAction: "accept_invite" | "login",
+): Promise<void> => {
+  const verification = await verifyTurnstileToken(c.env, {
+    expectedAction,
+    remoteIp: c.req.header("CF-Connecting-IP")?.trim() || null,
+    requestUrl: c.req.url,
+    token,
+  });
+
+  if (verification.ok) {
+    return;
+  }
+
+  throw new HttpError(
+    verification.status,
+    verification.status === 503 ? "turnstile_unavailable" : "turnstile_failed",
+    verification.message,
+    {
+      reason: verification.reason,
+      errorCodes: verification.errorCodes,
+    },
+  );
+};
+
 export const handleLogin = async (c: AppContext): Promise<Response> => {
   const db = c.get("db");
   const payload = await parseJson(c.req.raw, LoginRequest);
@@ -40,6 +67,8 @@ export const handleLogin = async (c: AppContext): Promise<Response> => {
   if (rateLimited) {
     return rateLimited;
   }
+
+  await assertTurnstileVerified(c, payload.turnstileToken, "login");
 
   const { inviteTtlSeconds } = getConfig(c.env);
   const user = await findUserByEmail(db, payload.email.toLowerCase());
@@ -96,6 +125,8 @@ export const handleInviteAccept = async (c: AppContext): Promise<Response> => {
   if (rateLimited) {
     return rateLimited;
   }
+
+  await assertTurnstileVerified(c, payload.turnstileToken, "accept_invite");
 
   const { inviteTtlSeconds } = getConfig(c.env);
   assertValidSlug(payload.slug, "slug");
