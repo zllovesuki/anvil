@@ -23,10 +23,14 @@ cp .dev.vars.example .dev.vars
 | ------------------------------------ | -------------------------------------------- |
 | `APP_ENCRYPTION_KEY_CURRENT_VERSION` | Active key version for credential encryption |
 | `APP_ENCRYPTION_KEYS_JSON`           | JSON map of version → base64 AES-GCM key     |
+| `TURNSTILE_SITE_KEY`                 | Public Cloudflare Turnstile widget site key  |
+| `TURNSTILE_SECRET_KEY`               | Server-side Turnstile Siteverify secret key  |
 
 For production, generate a fresh encryption key. The example key is for local development only and must never be reused in a remote Cloudflare environment.
 
-Store production encryption values as Worker secrets, not plaintext `vars` in `wrangler.jsonc`.
+`.dev.vars.example` also includes Cloudflare Turnstile dummy keys for local development. Do not reuse those dummy keys in a remote Cloudflare environment.
+
+Store production encryption and Turnstile values as Worker secrets, not plaintext `vars` in `wrangler.jsonc`.
 
 ### Production encryption setup
 
@@ -58,6 +62,24 @@ When prompted, enter these values:
 ```
 
 If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`. Worker secrets are environment-specific and do not inherit between environments.
+
+### Production Turnstile setup
+
+Create a Cloudflare Turnstile widget for the deployment hostname, then set both generated keys with Wrangler:
+
+```bash
+npx wrangler secret put TURNSTILE_SITE_KEY
+npx wrangler secret put TURNSTILE_SECRET_KEY
+```
+
+When prompted, enter the real site key and secret key from Cloudflare. If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`.
+
+Live login and invite acceptance require Turnstile. The frontend reads `TURNSTILE_SITE_KEY` from `GET /api/public/app-config`, renders the widget, and sends a `turnstileToken` to:
+
+- `POST /api/public/auth/login`
+- `POST /api/public/auth/invite/accept`
+
+The Worker validates each token through Cloudflare Siteverify with `TURNSTILE_SECRET_KEY`. If the site key or secret key is missing, live public auth is blocked with a human-verification error. Mock mode uses a synthetic local token and does not call Turnstile.
 
 ### Key rotation
 
@@ -123,7 +145,7 @@ npm run db:seed-initial-user -- --remote
 npm run dev
 ```
 
-Open the local URL printed in the terminal. Accept the bootstrap invite to create your account.
+Open the local URL printed in the terminal. Accept the bootstrap invite to create your account. The copied `.dev.vars` file provides Turnstile dummy keys that allow localhost live mode to pass human verification without a real challenge.
 
 ### Mock mode (frontend-only)
 
@@ -135,7 +157,7 @@ Mock mode is particularly useful for:
 - Agentic workflows where an AI agent browses the local dev server to verify UI changes
 - Quick iteration on components and pages without dispatch/container dependencies
 
-Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrations applied.
+Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrations applied and Turnstile variables present in `.dev.vars`.
 
 ## All scripts
 
@@ -171,7 +193,7 @@ If the first `npm run deploy` fails because queue `anvil-runs` does not exist ye
 npx wrangler queues create anvil-runs
 ```
 
-See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Durable Objects, Queues, Workflows, and Containers.
+See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Durable Objects, Queues, Workflows, and Containers. Turnstile keys are environment variables/secrets, not bindings.
 
 ## Cloudflare bindings
 
@@ -203,7 +225,8 @@ See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Dura
 
 - **Credential encryption**: Repository tokens and webhook secrets encrypted at rest (AES-GCM with key versioning)
 - **Secret redaction**: Git credentials automatically redacted from all run logs
-- **XSS hardening**: Strict CSP (no inline scripts), escaped log rendering
+- **XSS hardening**: Strict CSP (no inline scripts), escaped log rendering, and explicit allowance for `https://challenges.cloudflare.com` so Turnstile can load
+- **Human verification**: Turnstile required for live login and invite acceptance, with server-side Siteverify validation
 - **Sessions**: KV-backed with opaque IDs, Bearer header auth (not cookies)
 - **Password hashing**: PBKDF2 SHA-256, 100k iterations, per-user salt
 - **Rate limiting**: See [waf.md](waf.md) for WAF and Workers Rate Limiting recommendations

@@ -1,9 +1,10 @@
 # anvil rate limiting
 
-anvil uses two layers for public-route abuse control:
+anvil uses three layers for public-route abuse control:
 
 - Cloudflare WAF rate limiting rules for the coarse outer boundary on `/api/public/*`
 - Workers rate limiting bindings for narrow, application-aware throttling on brute-forceable auth flows
+- Cloudflare Turnstile human verification on live login and invite acceptance
 
 ## Outer WAF rule
 
@@ -25,6 +26,7 @@ Why WAF remains primary:
 - it protects the whole public prefix before worker code runs
 - it matches the current anvil spec
 - the Workers binding is per-location and eventually consistent, so it is not a good replacement for a coarse edge rule
+- Turnstile protects interactive auth forms, but it does not replace prefix-wide WAF protection for webhooks and future public routes
 
 Relevant docs:
 
@@ -55,11 +57,28 @@ They do not apply to:
 - `POST /api/public/auth/logout`
 - `POST /api/public/hooks/:provider/:ownerSlug/:projectSlug`
 
+## Turnstile
+
+Live auth requires Cloudflare Turnstile on:
+
+- `POST /api/public/auth/login`
+- `POST /api/public/auth/invite/accept`
+
+The frontend reads the public site key from `GET /api/public/app-config`, renders the Turnstile widget, and submits the resulting `turnstileToken` with the auth request. The Worker verifies that token through Cloudflare Siteverify before checking credentials or accepting an invite.
+
+Turnstile intentionally does not apply to:
+
+- `POST /api/public/auth/logout`
+- `POST /api/public/hooks/:provider/:ownerSlug/:projectSlug`
+
+Local development uses Cloudflare dummy keys from `.dev.vars.example`. Production must use real Turnstile keys configured as Worker secrets.
+
 ## Why webhooks are excluded
 
-Webhook ingress already sits behind the coarse WAF boundary and has provider-specific retry semantics after verification. The Workers binding is not used there because:
+Webhook ingress already sits behind the coarse WAF boundary and has provider-specific retry semantics after verification. The Workers binding and Turnstile are not used there because:
 
 - webhook traffic is provider-driven, not user-driven
+- provider-to-provider webhook calls cannot complete an interactive human-verification challenge
 - the binding is local to a Cloudflare location and eventually consistent
 - webhook failure handling already uses application responses like `503` plus `Retry-After` for `queue_full`
 
