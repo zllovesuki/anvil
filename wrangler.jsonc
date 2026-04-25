@@ -132,7 +132,7 @@
 			"custom_domain": true,
 		},
 		{
-			"pattern": "ci.edgenative.dev",
+			"pattern": "ci.limic.dev",
 			"custom_domain": true,
 		},
 	],

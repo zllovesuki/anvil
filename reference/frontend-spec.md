@@ -136,9 +136,9 @@ src/
 
 ## 3. Styling & Aesthetics
 
-### edgenative Design Philosophy
+### limic Design Philosophy
 
-**"Consistently Distinctive"**: Every app within the `edgenative.dev` ecosystem shares a consistent technical foundation and base visual language (dark-mode Zinc palette, standard shell components, specific shadows/radii) so users visually recognize they are using an `edgenative.dev` product.
+**"Consistently Distinctive"**: Every app within the `limic.dev` ecosystem shares a consistent technical foundation and base visual language (dark-mode Zinc palette, standard shell components, specific shadows/radii) so users visually recognize they are using a `limic.dev` product.
 
 However, within these shared constraints, each application must exhibit a **distinctive, bold, and memorable aesthetic**.
 
@@ -376,7 +376,7 @@ Hover states inside elevated surfaces use `zinc-700` (`#423f42`). Resting intera
 
 **Why lifted, not near-black?** Pure dark backgrounds (`#09090b`) cause halation — light text blooms and blurs against very dark surfaces, especially for users with astigmatism. A lifted background at `#221f21` paired with heavier text weight (450) produces a more comfortable reading experience for extended sessions. This is an accessibility decision, not an aesthetic preference.
 
-**Why warm-shifted?** Stock zinc has a subtle cool/blue cast (B channel consistently exceeds R). On dark surfaces viewed for extended periods, this cool cast registers as clinical or harsh even when the user can't identify it as "blue." Raising R by 2-3 and lowering B by 1-4 per stop removes the cool cast without introducing a visible warm color. The result is perceived as "neutral" rather than "cool-gray," which better matches the `edgenative.dev` brand voice of warmth and comfort.
+**Why warm-shifted?** Stock zinc has a subtle cool/blue cast (B channel consistently exceeds R). On dark surfaces viewed for extended periods, this cool cast registers as clinical or harsh even when the user can't identify it as "blue." Raising R by 2-3 and lowering B by 1-4 per stop removes the cool cast without introducing a visible warm color. The result is perceived as "neutral" rather than "cool-gray," which better matches the `limic.dev` brand voice of warmth and comfort.
 
 ### Accent Color Palette
 
@@ -435,7 +435,7 @@ This ensures accent color changes propagate everywhere from a single source of t
 
 ### Primary Fonts
 
-The edgenative ecosystem uses `Hanken Grotesk` and `JetBrains Mono` as the shared baseline for body text, inputs, and UI components. **Generic fonts like Arial, Roboto, or Inter are strictly forbidden.**
+The limic ecosystem uses `Hanken Grotesk` and `JetBrains Mono` as the shared baseline for body text, inputs, and UI components. **Generic fonts like Arial, Roboto, or Inter are strictly forbidden.**
 
 However, to give each app its distinctive aesthetic, **you are heavily encouraged to pair a bold, characterful Display font** for primary headings (`<h1>`, `<h2>`, hero text) alongside the refined `Hanken Grotesk` body font. Consider unconventional choices that elevate the visual interest (e.g., striking serifs, geometric displays, or brutalist grotesques).
 
@@ -637,8 +637,8 @@ Every project's header brand follows the same structure. The icon is a lucide-re
 
 - **Spacing**: `mt-12 border-t border-zinc-800/60`
 - **Content**: two items only
-  1. "Made with [heart] on Cloudflare" — the entire phrase wrapped in a single `<a>` linking to `https://edgenative.dev` (no separate Cloudflare-corporate link, no plain-text variant)
-  2. Source code link → the project's repository on `git.edgenative.dev`
+  1. "Made with [heart] on Cloudflare" — the entire phrase wrapped in a single `<a>` linking to `https://limic.dev` (no separate Cloudflare-corporate link, no plain-text variant)
+  2. Source code link → the project's repository on `git.limic.dev`
 - **Removed**: the previous "Part of devbin.tools" / "Part of edgenative.dev" trailing link is gone — the umbrella link now lives on the "Made with…on Cloudflare" phrase.
 - **Text**: `text-xs text-zinc-500`
 - **Heart**: `text-accent-500`
@@ -899,7 +899,7 @@ NO  <span className="text-red-400">Failed</span>   <- color is the only signal
 
 Approximately 33% of people have some degree of astigmatism. On near-black backgrounds, light text "blooms" — the strokes spread and blur, making text physically uncomfortable to read for extended periods. This is called halation.
 
-The edgenative.dev design system addresses this with three measures:
+The limic.dev design system addresses this with three measures:
 
 1. **Lifted backgrounds**: `canvas` at `#1f1f22` instead of `zinc-950` (`#09090b`). The reduced contrast between text and background eliminates halation while maintaining a dark aesthetic.
 2. **Heavier body weight**: `font-weight: 450` instead of 400. Thicker strokes resist the blooming effect.
