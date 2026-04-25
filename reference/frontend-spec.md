@@ -136,11 +136,12 @@ src/
 
 ## 3. Styling & Aesthetics
 
-### Devbin Tools Design Philosophy
+### edgenative Design Philosophy
 
-**"Consistently Distinctive"**: Every app within the `devbin.tools` ecosystem shares a consistent technical foundation and base visual language (dark-mode Zinc palette, standard shell components, specific shadows/radii) so users visually recognize they are using a `devbin.tools` product. 
+**"Consistently Distinctive"**: Every app within the `edgenative.dev` ecosystem shares a consistent technical foundation and base visual language (dark-mode Zinc palette, standard shell components, specific shadows/radii) so users visually recognize they are using an `edgenative.dev` product.
 
 However, within these shared constraints, each application must exhibit a **distinctive, bold, and memorable aesthetic**.
+
 - **Aesthetic Direction**: Interpret the project's specific purpose creatively. Pick an aesthetic flavor that fits the tool's tone (e.g., brutalist/utilitarian, premium/refined, retro-terminal, etc.) and inject that flavor via typography, backgrounds, or layouts.
 - **No Generic Predictability**: Avoid uninspired aesthetics like cliched layouts, overly predictable component patterns, and standard minimalist boilerplate. Design should be deeply intentional.
 - **Visual Depth**: Create atmosphere and depth. Rather than sticking purely to flat Zinc surfaces, selectively apply contextual effects (gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, or custom cursors) that define the app's unique identity.
@@ -157,17 +158,17 @@ However, within these shared constraints, each application must exhibit a **dist
 
 Keep drop shadows subtle. Prefer `shadow-sm` over `shadow-lg`/`shadow-xl`.
 
-| Element           | Static shadow                    | Hover shadow                                 |
-| ----------------- | -------------------------------- | -------------------------------------------- |
-| Logo / brand icon | `shadow-sm shadow-accent-500/10` | --                                           |
-| Primary button    | `shadow-sm shadow-accent-500/10` | `hover:shadow-md hover:shadow-accent-500/15` |
-| Card hover        | --                               | `hover:shadow-sm`                            |
+| Element           | Static shadow | Hover shadow      |
+| ----------------- | ------------- | ----------------- |
+| Logo / brand icon | --            | --                |
+| Primary button    | --            | --                |
+| Card hover        | --            | `hover:shadow-sm` |
 
-Never use `shadow-lg` or `shadow-xl` on interactive elements. Reserve `shadow-2xl` for modals/dialogs only.
+Never use `shadow-lg` or `shadow-xl` on interactive elements. Reserve `shadow-2xl` for modals/dialogs only. Do not add colored accent shadows (e.g., `shadow-accent-500/10`) to buttons or icons — they read as AI-generated and add visual noise without improving affordance.
 
 ### Card & Selection Hover
 
-**Never animate border hue shifts** (e.g., zinc → accent or zinc → amber via `transition-colors`). The color morph through intermediate tones looks unnatural even at 75ms. Instead:
+**Never animate border hue shifts** (e.g., zinc -> accent or zinc -> amber via `transition-colors`). The color morph through intermediate tones looks unnatural even at 75ms. Instead:
 
 - **Cards / list rows**: instant hover (no `transition-*`), lighten the border within the same hue: `hover:border-zinc-700/60 hover:bg-zinc-900/80`.
 - **Toggle / selection buttons** (e.g., TTL picker, radio-style options): no transition on the border. Let the selected/unselected state swap instantly via conditional classes.
@@ -191,12 +192,12 @@ Default transition duration is overridden to **75ms** via `--default-transition-
 
 ### Performance
 
-- **Ambient glow & Textures**: apply the radial-gradient glow directly on `body`'s `background-image` alongside `background-color`. **Do not** use a `position: fixed` pseudo-element (`body::before`) — even with `will-change: transform`, a full-viewport fixed layer forces compositor blending against all scrolling content every frame, halving scroll frame rate (~33ms p50 vs ~16.7ms). Putting the gradient on `body` itself avoids the extra compositing layer entirely with no visual difference (the glow is ≤ 2% opacity). Adding grain, noise textures, or geometric grid patterns on top of this glow is highly encouraged to give the app a tactile feel, as long as it is applied performantly via CSS `background-image` layering on the `body`.
-- **`backdrop-blur-sm`** on sticky headers is acceptable. Prefer `backdrop-blur-sm` (4px) over `backdrop-blur-xl` (24px) — the larger radius is ~6× more expensive per frame and barely distinguishable at high background opacity. Pair with `bg-zinc-950/95` so the blur is cosmetic, not structural.
+- **Ambient glow & Textures**: If used, apply radial-gradient glows directly on `body`'s `background-image` alongside `background-color`. **Do not** use a `position: fixed` pseudo-element (`body::before`) — the full-viewport fixed layer forces compositor blending against all scrolling content every frame. However, ambient textures (dot patterns, grain, radial glows) at very low opacity (2-3%) are effectively invisible and add CSS weight for zero visible effect. If the texture isn't perceptible at arm's length, remove it — dead CSS is worse than no texture. If you do use textures, make them visible enough to justify their presence (5-8% opacity minimum for dot patterns).
+- **`backdrop-blur-sm`** on sticky headers is acceptable. Prefer `backdrop-blur-sm` (4px) over `backdrop-blur-xl` (24px) -- the larger radius is ~6x more expensive per frame and barely distinguishable at high background opacity. Pair with `bg-canvas/95` so the blur is cosmetic, not structural.
 
 ### Global CSS Template
 
-Every project's `app.css` follows this exact structure. The **only** per-project differences are the `--color-accent-*` values and the ambient glow RGB values on `body`.
+Every project's `app.css` follows this exact structure. Per-project differences: `--color-accent-*` values and `--color-canvas` (if customized from the default).
 
 ```css
 @import "tailwindcss";
@@ -209,6 +210,19 @@ Every project's `app.css` follows this exact structure. The **only** per-project
   --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 
+  /* Warm zinc overrides -- see Section 4 Neutral Palette */
+  --color-zinc-50: #fafaf9;
+  --color-zinc-100: #f5f4f4;
+  --color-zinc-200: #e5e4e5;
+  --color-zinc-300: #d6d4d7;
+  --color-zinc-400: #a3a1a8;
+  --color-zinc-500: #747178;
+  --color-zinc-600: #555259;
+  --color-zinc-700: #423f42;
+  --color-zinc-800: #2a2729;
+  --color-zinc-900: #1b181a;
+  --color-zinc-950: #0c090b;
+
   /* Project accent color palette -- replace values per project */
   --color-accent-50: ...;
   --color-accent-100: ...;
@@ -220,6 +234,9 @@ Every project's `app.css` follows this exact structure. The **only** per-project
   --color-accent-700: ...;
   --color-accent-800: ...;
   --color-accent-900: ...;
+
+  /* Lifted warm canvas background -- see Section 4 Surface Hierarchy */
+  --color-canvas: #221f21;
 
   --animate-fade-in: fade-in 0.4s ease-out both;
   --animate-slide-up: slide-up 0.35s ease-out both;
@@ -276,14 +293,8 @@ body {
 }
 
 body {
-  @apply text-zinc-100 antialiased;
-  background-color: #09090b;
-  background-image:
-    radial-gradient(circle, rgba(255,255,255,0.03) 0.5px, transparent 0.5px),
-    radial-gradient(circle, rgba(255,255,255,0.02) 0.5px, transparent 0.5px),
-    radial-gradient(circle at 20% 20%, rgba(<accent-rgb>, 0.02), transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(<accent-rgb>, 0.015), transparent 50%);
-  background-size: 3px 3px, 7px 7px, 100% 100%, 100% 100%;
+  @apply bg-canvas text-zinc-100 antialiased;
+  font-weight: 450;
 }
 
 #root {
@@ -297,24 +308,20 @@ summary,
   cursor: pointer;
 }
 
-::selection {
-  background: rgba(<accent-rgb>, 0.28);
-  color: var(--color-accent-50);
+*:focus-visible {
+  @apply outline-none ring-2 ring-accent-500/50 ring-offset-2 ring-offset-canvas;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::selection {
+  @apply bg-accent-500/[0.28] text-accent-50;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+
+/* Scope scrollbar styling to scrollable containers, not * */
+body,
+.overflow-y-auto,
+.overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: theme(--color-zinc-700) transparent;
 }
 ```
 
@@ -328,46 +335,90 @@ All projects are **dark-mode primary** (or dark-only). The `<html>` element carr
 
 If light mode is supported, it uses the class-based toggle pattern (`html.dark` / `html` without `.dark`) with the user's preference stored in `localStorage` under key `"theme"`, defaulting to `"dark"`. A bootstrap script in `<head>` reads this value and applies the class before first paint to prevent flash.
 
-### Neutral Palette: Zinc
+### Neutral Palette: Warm Zinc
 
-Every project uses Tailwind's `zinc` scale as the neutral foundation:
+Every project uses Tailwind's `zinc` scale as its neutral starting point, **warm-shifted** via `@theme` overrides, with the body background lifted from stock `zinc-950` to a custom `canvas` color. This serves two purposes:
 
-| Token      | Hex       | Usage                                                    |
-| ---------- | --------- | -------------------------------------------------------- |
-| `zinc-950` | `#09090b` | Body/page background                                     |
-| `zinc-900` | `#18181b` | Card/section backgrounds, input backgrounds              |
-| `zinc-800` | `#27272a` | Borders, secondary backgrounds (often at `/60` or `/80`) |
-| `zinc-700` | `#3f3f46` | Control borders, dividers                                |
-| `zinc-600` | `#52525b` | Muted icons, disabled states                             |
-| `zinc-500` | `#71717a` | Muted/placeholder text                                   |
-| `zinc-400` | `#a1a1aa` | Secondary text                                           |
-| `zinc-300` | `#d4d4d8` | Near-white text, secondary headings                      |
-| `zinc-200` | `#e4e4e7` | Headings, prominent text                                 |
-| `zinc-100` | `#f4f4f5` | Primary body text                                        |
+1. **Halation prevention** — the lifted canvas prevents light text from blooming against very dark surfaces (astigmatism accommodation).
+2. **Warm tinting** — stock `zinc` leans slightly cool/blue. Overriding with warmer values (R slightly raised, B slightly lowered) removes the cold cast and produces a more comfortable, inviting reading surface without a visible color shift. The warmth should be felt, not seen.
+
+Override the zinc scale in `@theme` using the warm values below. This automatically propagates to all Tailwind class usage. For hardcoded hex values in plain CSS files (editor overlays, third-party component styles), use the same warm hex values rather than stock zinc.
+
+| Token      | Warm hex  | Stock hex | Shift    | Usage                                               |
+| ---------- | --------- | --------- | -------- | --------------------------------------------------- |
+| `canvas`   | `#221f21` | `#1f1f22` | +3R, -1B | Body/page background (custom, ~zinc-850)            |
+| `zinc-900` | `#1b181a` | `#18181b` | +3R, -1B | Recessed containers (code blocks, tables, inset UI) |
+| `zinc-800` | `#2a2729` | `#27272a` | +3R, -1B | Elevated surfaces (menus, dialogs, cards, popovers) |
+| `zinc-700` | `#423f42` | `#3f3f46` | +3R, -4B | Hover states inside elevated surfaces, borders      |
+| `zinc-600` | `#555259` | `#52525b` | +3R, -2B | Muted icons, disabled states                        |
+| `zinc-500` | `#747178` | `#71717a` | +3R, -2B | Muted/placeholder text                              |
+| `zinc-400` | `#a3a1a8` | `#a1a1aa` | +2R, -2B | Secondary text                                      |
+| `zinc-300` | `#d6d4d7` | `#d4d4d8` | +2R, -1B | Near-white text, secondary headings                 |
+| `zinc-200` | `#e5e4e5` | `#e4e4e7` | +1R, -2B | Headings, prominent text                            |
+| `zinc-100` | `#f5f4f4` | `#f4f4f5` | +1R, -1B | Primary body text                                   |
+
+The shift pattern is consistent: raise R by 2-3, lower B by 1-4, leave G unchanged. Darker stops get a proportionally larger shift because the cool cast is more noticeable at low luminance. Lighter stops are barely changed — text readability is unaffected.
+
+### Surface Hierarchy
+
+The lifted canvas creates a four-tier depth model without relying on shadows:
+
+| Tier         | Color                  | Usage                                                      | Visual effect                                         |
+| ------------ | ---------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| **Chrome**   | `zinc-900` (`#1b181a`) | Header, sidebar, mobile drawer                             | Darker than body — frames the content area from edges |
+| **Canvas**   | `canvas` (`#221f21`)   | Body / main content area                                   | Primary reading surface, brightest baseline           |
+| **Recessed** | `zinc-900` (`#1b181a`) | Code blocks, table wrappers, details/toggle containers     | Darker than body — inset feel within content          |
+| **Elevated** | `zinc-800` (`#2a2729`) | Menus, dialogs, modals, dropdowns, search panels, popovers | Lighter than body — floating feel                     |
+
+Chrome and Recessed share `zinc-900` but serve different visual roles: chrome frames the layout from the edges (header border-b, sidebar border-r provide separation), while recessed containers sit within the content area and are distinguished by their own borders. The content area at `canvas` is the brightest surface — the place the eye should rest.
+
+Hover states inside elevated surfaces use `zinc-700` (`#423f42`). Resting interactive elements inside overlays (inputs, action buttons) also use `zinc-700` since their container is already `zinc-800`.
+
+**Why lifted, not near-black?** Pure dark backgrounds (`#09090b`) cause halation — light text blooms and blurs against very dark surfaces, especially for users with astigmatism. A lifted background at `#221f21` paired with heavier text weight (450) produces a more comfortable reading experience for extended sessions. This is an accessibility decision, not an aesthetic preference.
+
+**Why warm-shifted?** Stock zinc has a subtle cool/blue cast (B channel consistently exceeds R). On dark surfaces viewed for extended periods, this cool cast registers as clinical or harsh even when the user can't identify it as "blue." Raising R by 2-3 and lowering B by 1-4 per stop removes the cool cast without introducing a visible warm color. The result is perceived as "neutral" rather than "cool-gray," which better matches the `edgenative.dev` brand voice of warmth and comfort.
 
 ### Accent Color Palette
 
 Every project defines its accent as `accent-*` via `@theme`. **Never** use project-specific names (e.g., ~~`flame-*`~~) or raw Tailwind color names (e.g., ~~`indigo-*`~~) for the accent. This ensures that shell components, buttons, nav links, and all accent-referencing classes are identical across projects.
 
-| Project           | Accent-500 (primary) | Hue Family | RGB for glow   |
-| ----------------- | -------------------- | ---------- | -------------- |
-| anvil             | `#3b82f6`            | Blue       | `59, 130, 246` |
-| flamemail         | `#f97316`            | Orange     | `249, 115, 22` |
-| git-on-cloudflare | `#6366f1`            | Indigo     | `99, 102, 241` |
+| Project           | Accent-500 (primary) | Hue Family    |
+| ----------------- | -------------------- | ------------- |
+| anvil             | `#3b82f6`            | Blue          |
+| bland             | `#9d6ee8`            | Warm amethyst |
+| flamemail         | `#f97316`            | Orange        |
+| git-on-cloudflare | `#6366f1`            | Indigo        |
 
-The accent palette follows a 50--900 scale identical in structure to Tailwind's built-in color scales.
+The accent palette follows a 50-900 scale identical in structure to Tailwind's built-in color scales.
+
+**Choosing accent colors**: Avoid stock Tailwind palette values (especially `violet-500` / `#8b5cf6`) — they are the most recognizable AI-generated color choice. Pick a custom hue that is clearly distinct from any Tailwind default. If using violet/purple, shift the hue warmer (toward 270-278) and reduce saturation from Tailwind's 90% to ~70-75% for a more sophisticated, less electric feel.
 
 ### Accent Color Application Pattern
 
-| Element                 | Classes                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| Primary CTA button      | `bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10` |
-| Secondary button        | `border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60`              |
-| Active nav item         | `bg-accent-500/10 text-accent-400`                                                         |
-| Inputs (focus)          | `focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30`                         |
-| Logo icon background    | `bg-gradient-to-br from-accent-500 to-accent-600`                                          |
-| Unread/active indicator | `bg-accent-500`                                                                            |
-| Ambient background glow | `rgba(<accent-rgb>, 0.02)` radial gradients                                                |
+| Element                 | Classes                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| Primary CTA button      | `bg-accent-600 text-white hover:bg-accent-500`                                |
+| Secondary button        | `border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60` |
+| Active nav item         | `bg-accent-500/10 text-accent-400`                                            |
+| Inputs (focus)          | `focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30`            |
+| Header brand icon       | `text-accent-400` stroked lucide glyph (no background tile) — see Section 7   |
+| Unread/active indicator | `bg-accent-500`                                                               |
+
+Prefer solid accent colors over gradients. Gradient buttons (`from-accent-500 to-accent-600`) and accent-colored shadows (`shadow-accent-500/10`) are the most recognizable AI-generated patterns and should be avoided. A solid `bg-accent-600` with `hover:bg-accent-500` is cleaner and more intentional.
+
+### Accent Colors in Plain CSS
+
+Editor overlays, third-party component overrides, and other plain CSS files that need accent colors should reference the `@theme` variables rather than hardcoding hex values:
+
+```css
+/* Direct color */
+color: var(--color-accent-400);
+
+/* With opacity (use color-mix, not hardcoded rgba) */
+background-color: color-mix(in srgb, var(--color-accent-500) 10%, transparent);
+```
+
+This ensures accent color changes propagate everywhere from a single source of truth.
 
 ### Semantic Colors
 
@@ -384,17 +435,19 @@ The accent palette follows a 50--900 scale identical in structure to Tailwind's 
 
 ### Primary Fonts
 
-The Devbin ecosystem uses `Hanken Grotesk` and `JetBrains Mono` as the shared baseline for body text, inputs, and UI components. **Generic fonts like Arial, Roboto, or Inter are strictly forbidden.**
+The edgenative ecosystem uses `Hanken Grotesk` and `JetBrains Mono` as the shared baseline for body text, inputs, and UI components. **Generic fonts like Arial, Roboto, or Inter are strictly forbidden.**
 
 However, to give each app its distinctive aesthetic, **you are heavily encouraged to pair a bold, characterful Display font** for primary headings (`<h1>`, `<h2>`, hero text) alongside the refined `Hanken Grotesk` body font. Consider unconventional choices that elevate the visual interest (e.g., striking serifs, geometric displays, or brutalist grotesques).
 
 Loaded via Google Fonts `<link>` tags with `preconnect`:
 
-| Font                    | Weights                 | Usage                                      |
-| ----------------------- | ----------------------- | ------------------------------------------ |
-| **Hanken Grotesk**      | 400, 500, 600, 700      | Body, UI elements, secondary headings      |
-| **JetBrains Mono**      | 400, 500                | Code blocks, monospace content             |
-| **[Project Display]**   | *as needed*             | High-impact headings (Display, H1, Heroes) |
+| Font                  | Weights                   | Usage                                      |
+| --------------------- | ------------------------- | ------------------------------------------ |
+| **Hanken Grotesk**    | 400..700 (variable range) | Body, UI elements, secondary headings      |
+| **JetBrains Mono**    | 400, 500                  | Code blocks, monospace content             |
+| **[Project Display]** | _as needed_               | High-impact headings (Display, H1, Heroes) |
+
+Load body fonts with variable font range syntax (e.g., `wght@400..700`) instead of discrete weights. This enables `font-weight: 450` for body text — slightly heavier than regular (400) to counteract halation on dark backgrounds. The 450 weight is set on `<body>` and cascades everywhere that doesn't specify an explicit weight.
 
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -427,7 +480,8 @@ Headings use tighter tracking and heavier weights for visual hierarchy:
 
 - `tracking-tight` (`-0.025em`) on Display and H1 tightens letterforms for impact at large sizes
 - `tracking-widest` (`0.1em`) on Captions creates a small-caps effect for overlines and meta labels
-- Never use `font-light` or `font-thin` — insufficient contrast on dark backgrounds
+- Never use `font-light` or `font-thin` — insufficient contrast on dark backgrounds, and halation makes thin strokes unreadable for astigmatic users
+- Body text inherits `font-weight: 450` from the `<body>` rule. Elements with explicit `font-medium` (500) or heavier are unaffected
 
 ---
 
@@ -435,7 +489,7 @@ Headings use tighter tracking and heavier weights for visual hierarchy:
 
 ### Philosophy
 
-Motion should feel intentional, physical, and **high-impact**. Prefer orchestrated sequences (such as a single, well-choreographed page load with staggered reveals) over scattered, distracting micro-animations. Every animation must serve either **orientation** (where am I?), **feedback** (what did I do?), or **continuity** (what just changed?). 
+Motion should feel intentional, physical, and **high-impact**. Prefer orchestrated sequences (such as a single, well-choreographed page load with staggered reveals) over scattered, distracting micro-animations. Every animation must serve either **orientation** (where am I?), **feedback** (what did I do?), or **continuity** (what just changed?).
 
 To create genuine delight, deeply integrate motion into the aesthetic: use scroll-triggering, surprise hover states, and smooth staggered cascades that breathe life into the UI.
 
@@ -445,16 +499,16 @@ Four keyframes are defined in every project's `app.css`:
 
 | Name         | Duration | Easing                        | Effect                                          |
 | ------------ | -------- | ----------------------------- | ----------------------------------------------- |
-| `fade-in`    | 0.4s     | ease-out                      | Opacity 0 → 1                                   |
-| `slide-up`   | 0.35s    | ease-out                      | Opacity 0 + translateY(12px) → visible          |
-| `scale-fade` | 0.3s     | cubic-bezier(0.16, 1, 0.3, 1) | Opacity 0 + scale(0.96) → visible               |
+| `fade-in`    | 0.4s     | ease-out                      | Opacity 0 -> 1                                  |
+| `slide-up`   | 0.35s    | ease-out                      | Opacity 0 + translateY(12px) -> visible         |
+| `scale-fade` | 0.3s     | cubic-bezier(0.16, 1, 0.3, 1) | Opacity 0 + scale(0.96) -> visible              |
 | `shimmer`    | 1.5s     | ease-in-out                   | Background position sweep (loading placeholder) |
 
 ### Entrance Animations
 
-- `animate-fade-in` — main content areas on page load
-- `animate-slide-up` — page-level content wrappers, modal/dialog entrances
-- `animate-scale-fade` — cards, popovers, dropdown menus (scale implies origin)
+- `animate-fade-in` -- main content areas on page load
+- `animate-slide-up` -- page-level content wrappers, modal/dialog entrances
+- `animate-scale-fade` -- cards, popovers, dropdown menus (scale implies origin)
 
 ### Staggered Reveals
 
@@ -471,7 +525,7 @@ When multiple sibling elements enter together (card grids, list items, stat bloc
 Rules:
 
 - Base delay increment: **60ms** per item (fast enough to feel connected, slow enough to perceive the sequence)
-- Cap at **8 items** (480ms total) — beyond that, truncate the stagger so the tail doesn't drag
+- Cap at **8 items** (480ms total) -- beyond that, truncate the stagger so the tail doesn't drag
 - Always set `opacity-0` on the element so it's invisible before the animation fires (`animation-fill-mode: both` in the keyframe handles the final state)
 
 ### Interaction Micro-Animations
@@ -495,9 +549,9 @@ Skeleton: bg-gradient-to-r from-zinc-800/0 via-zinc-700/40 to-zinc-800/0 bg-[len
 
 ### What Not to Animate
 
-- **Layout properties**: `width`, `height`, `top`, `left`, `margin`, `padding` — triggers layout recalculation
-- **Border hue shifts**: covered in Section 3 (no zinc → accent transitions)
-- **Scroll-linked parallax**: avoid JS-driven scroll animations — they fight the compositor and add jank
+- **Layout properties**: `width`, `height`, `top`, `left`, `margin`, `padding` -- triggers layout recalculation
+- **Border hue shifts**: covered in Section 3 (no zinc -> accent transitions)
+- **Scroll-linked parallax**: avoid JS-driven scroll animations -- they fight the compositor and add jank
 - **Below-fold entrances**: only animate elements visible on initial load; below-fold content should already be in its final state when scrolled into view
 
 ---
@@ -515,7 +569,7 @@ Skeleton: bg-gradient-to-r from-zinc-800/0 via-zinc-700/40 to-zinc-800/0 bg-[len
     <title>{project name}</title>
     <!-- Google Fonts -->
   </head>
-  <body class="bg-zinc-950 text-zinc-100">
+  <body class="bg-canvas text-zinc-100">
     <div id="root"></div>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
@@ -548,16 +602,44 @@ Every project has an `app-shell.tsx` that renders:
 ### Header (`header.tsx`)
 
 - **Position**: `sticky top-0 z-50`
-- **Background**: `bg-zinc-950/95 backdrop-blur-sm` (dark), `bg-white/95 backdrop-blur-sm` (light)
+- **Background**: `bg-zinc-900/95 backdrop-blur-sm` (dark), `bg-white/95 backdrop-blur-sm` (light) — chrome tier, not canvas
 - **Border**: `border-b border-zinc-800/60`
 - **Container**: `max-w-7xl mx-auto px-4 sm:px-6`
-- **Logo**: gradient icon (`rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 shadow-sm shadow-accent-500/10`) + app name + subtitle
+- **Logo**: stroked lucide icon on the chrome surface (no filled background tile) + app name + subtitle
 - **Nav links**: Icon + label, `bg-accent-500/10 text-accent-400` when active
+
+#### Brand Icon Pattern
+
+Every project's header brand follows the same structure. The icon is a lucide-react glyph tinted with the accent color — **not** a filled `bg-accent-500` tile. A gentle `-rotate-6` on hover is the signature micro-interaction and must be preserved.
+
+```tsx
+<Link to="/" className="group flex items-center gap-3 transition-opacity hover:opacity-80">
+  <span className="inline-grid h-9 w-9 place-items-center">
+    <ProjectIcon
+      className="h-6 w-6 text-accent-400 transition-transform duration-200 group-hover:-rotate-6"
+      strokeWidth={2}
+      aria-hidden="true"
+    />
+  </span>
+  <span className="hidden sm:block">
+    <strong className="block text-sm font-semibold text-zinc-100">{project}</strong>
+    <small className="block text-xs text-zinc-400">{tagline}</small>
+  </span>
+</Link>
+```
+
+- Wrapper `<span>` is `inline-grid h-9 w-9 place-items-center` — reserves the 36px footprint without drawing a background.
+- Icon is `h-6 w-6 text-accent-400` with `strokeWidth={2}`. Light-mode projects may pair `text-accent-500 dark:text-accent-400`.
+- Always `aria-hidden="true"` on the icon — the `<strong>` app name is the accessible label.
+- The `group-hover:-rotate-6` is intentional warmth; do not remove it or substitute `hover:scale-*`.
 
 ### Footer (`footer.tsx`)
 
 - **Spacing**: `mt-12 border-t border-zinc-800/60`
-- **Content**: "Made with [heart] on Cloudflare", source code link, "Part of devbin.tools"
+- **Content**: two items only
+  1. "Made with [heart] on Cloudflare" — the entire phrase wrapped in a single `<a>` linking to `https://edgenative.dev` (no separate Cloudflare-corporate link, no plain-text variant)
+  2. Source code link → the project's repository on `git.edgenative.dev`
+- **Removed**: the previous "Part of devbin.tools" / "Part of edgenative.dev" trailing link is gone — the umbrella link now lives on the "Made with…on Cloudflare" phrase.
 - **Text**: `text-xs text-zinc-500`
 - **Heart**: `text-accent-500`
 - **Links**: `underline decoration-zinc-700 underline-offset-2 hover:text-accent-400`
@@ -573,12 +655,12 @@ Every project has an `app-shell.tsx` that renders:
 **Banish Generic Patterns.** The default "three feature cards in a row" or the generic centered-hero-with-two-buttons are the hallmark of lazy AI-generated pages. Layouts should use highly creative, purpose-built compositions that align with the app's chosen aesthetic:
 
 - **Unexpected Layouts**: Don't default to perfectly symmetric constraints. Embrace asymmetry, grid-breaking overlapping elements, diagonal flows, and either generous negative space or tightly controlled density depending on the tone.
-- **Show the product**: Use live demos, interactive previews, terminal recordings, or stylized component showcases—not abstract descriptions floating in a rounded rectangle.
+- **Show the product**: Use live demos, interactive previews, terminal recordings, or stylized component showcases -- not abstract descriptions floating in a rounded rectangle.
 - **Typographic Impact**: A dominant, oversized Display heading featuring the project's unique font paired with strong negative space is vastly superior to scattered bullet points.
-- **Alternative Rhythms**: If you need to list features or data, use a simple `dl`, a two-column prose layout with inline `text-accent-400` highlights, dramatic large-numbered lists, or staggered asymmetric masonry—do **not** wrap every item in a bordered card.
-- **Reserve `<Card>` primitives for actual content**: Cards are for user-facing data objects (emails, repos, pastes)—not for decorating marketing copy or simple instructions.
+- **Alternative Rhythms**: If you need to list features or data, use a simple `dl`, a two-column prose layout with inline `text-accent-400` highlights, dramatic large-numbered lists, or staggered asymmetric masonry -- do **not** wrap every item in a bordered card.
+- **Reserve `<Card>` primitives for actual content**: Cards are for user-facing data objects (emails, repos, pastes) -- not for decorating marketing copy or simple instructions.
 
-When a page _does_ need a multi-item grid (e.g., a dashboard), each card should contain real, scannable data—not just an icon, a title, and a placeholder sentence.
+When a page _does_ need a multi-item grid (e.g., a dashboard), each card should contain real, scannable data -- not just an icon, a title, and a placeholder sentence.
 
 ---
 
@@ -593,7 +675,7 @@ Every project must have a `components/ui/` directory with at least these compone
 Variants: `primary`, `secondary`, `danger`, `ghost`. Sizes: `sm`, `md`.
 
 ```
-Primary:   bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-sm shadow-accent-500/10 active:scale-[0.98] transition-transform
+Primary:   bg-accent-600 text-white hover:bg-accent-500 active:scale-[0.98] transition-all
 Secondary: border border-zinc-700/60 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/60 active:scale-[0.98] transition-transform
 Danger:    border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-[0.98] transition-transform
 Ghost:     text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100 active:scale-[0.97] transition-transform
@@ -616,7 +698,7 @@ Interactive (clickable) cards add: `hover:-translate-y-0.5 transition-transform 
 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/80 px-4 py-2.5
 text-zinc-100 placeholder:text-zinc-500
 focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/30 focus:outline-none
-focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
 ```
 
 With label, helper text, and error states.
@@ -646,13 +728,13 @@ grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]
 
 ### Focus-Visible Ring
 
-All interactive elements must show a focus ring for keyboard navigation. Use `focus-visible` (not `focus`) to avoid showing rings on mouse click:
+All interactive elements must show a focus ring for keyboard navigation. The global `*:focus-visible` rule in `app.css` handles this automatically:
 
 ```
-focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+outline-none ring-2 ring-accent-500/50 ring-offset-2 ring-offset-canvas
 ```
 
-The `ring-offset-zinc-950` matches the page background, creating a gap between the element and the ring for visual clarity.
+The `ring-offset-canvas` matches the page background, creating a gap between the element and the ring for visual clarity. This is set once globally — do not add per-element focus rings unless suppressing the default (e.g., inline-editable titles).
 
 ---
 
@@ -764,48 +846,66 @@ export const App = () => (
 
 ### Baseline
 
-Every project must meet **WCAG 2.1 AA** as a minimum. Accessibility is not a follow-up task — it ships with the feature.
+Every project must meet **WCAG 2.1 AA** as a minimum. Accessibility is not a follow-up task -- it ships with the feature.
 
 ### Semantic HTML
 
-Use the correct element for the job. `<button>` for actions, `<a>` for navigation, `<input>` for form fields. Never attach click handlers to `<div>` or `<span>` — use a `<button>` with `variant="ghost"` if you need an unstyled clickable.
+Use the correct element for the job. `<button>` for actions, `<a>` for navigation, `<input>` for form fields. Never attach click handlers to `<div>` or `<span>` -- use a `<button>` with `variant="ghost"` if you need an unstyled clickable.
 
 Landmarks (`<header>`, `<nav>`, `<main>`, `<footer>`, `<aside>`) must be present and used correctly in the app shell. There should be exactly one `<main>` per page.
 
 ### Keyboard Navigation
 
 - All interactive elements must be reachable via **Tab** in a logical order
-- `focus-visible` rings are mandatory on every interactive element (see Section 8 — Focus-Visible Ring)
-- Modal dialogs must **trap focus** — Tab cycles within the dialog until it is dismissed
+- `focus-visible` rings are mandatory on every interactive element (see Section 8 -- Focus-Visible Ring)
+- Modal dialogs must **trap focus** -- Tab cycles within the dialog until it is dismissed
 - Pressing **Escape** must close modals, dropdowns, and popovers
 - Custom components (dropdowns, menus, tabs) must implement the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) keyboard patterns for their role
 
 ### ARIA
 
-- Prefer semantic HTML over ARIA — `aria-*` attributes are a supplement, not a substitute
+- Prefer semantic HTML over ARIA -- `aria-*` attributes are a supplement, not a substitute
 - Icon-only buttons must have `aria-label` (e.g., `<button aria-label="Close"><X /></button>`)
 - Loading states must use `aria-busy="true"` on the container and `aria-live="polite"` for dynamic content updates
 - Toast notifications must use `role="status"` and `aria-live="polite"` (or `aria-live="assertive"` for errors)
-- Form inputs must be associated with their labels via `htmlFor`/`id` — never rely on placeholder text as the only label
+- Form inputs must be associated with their labels via `htmlFor`/`id` -- never rely on placeholder text as the only label
 - Error messages must be linked to their input via `aria-describedby`
 - Expandable sections (accordions, dropdowns) must use `aria-expanded`
 - Decorative icons use `aria-hidden="true"`; informational icons need accessible text
 
 ### Color Contrast
 
-| Element                                   | Minimum ratio | Standard                 |
-| ----------------------------------------- | ------------- | ------------------------ |
-| Body text (`zinc-100` on `zinc-950`)      | 4.5:1         | AA normal                |
-| Secondary text (`zinc-400` on `zinc-950`) | 4.5:1         | AA normal                |
-| Muted text (`zinc-500` on `zinc-950`)     | 3:1           | AA large / UI components |
-| Interactive controls (borders, icons)     | 3:1           | AA UI                    |
+Contrast ratios are calculated against the lifted `canvas` background (`#1f1f22`), not `zinc-950`:
+
+| Element                                 | Ratio on canvas | Standard                        |
+| --------------------------------------- | --------------- | ------------------------------- |
+| Body text (`zinc-100` on `canvas`)      | 14.3:1          | AA normal                       |
+| Secondary text (`zinc-400` on `canvas`) | 5.9:1           | AA normal                       |
+| Muted text (`zinc-500` on `canvas`)     | 4.5:1           | AA normal (passes on lifted bg) |
+| Interactive controls (borders, icons)   | 3:1+            | AA UI                           |
+
+Note: `zinc-500` on the old `zinc-950` body failed AA at 4.12:1. The lifted `canvas` background improves this to ~5.5:1, passing AA. This is one of the key reasons for the lifted background.
+
+Never use `zinc-600` for text that carries semantic meaning — its contrast ratio against any dark background is insufficient for readability.
 
 Never rely on color alone to communicate state. Pair color with an icon, label, or pattern:
 
 ```
-✓  <Badge variant="error"><AlertCircle size={14} /> Failed</Badge>
-✗  <span className="text-red-400">Failed</span>   ← color is the only signal
+OK  <Badge variant="error"><AlertCircle size={14} /> Failed</Badge>
+NO  <span className="text-red-400">Failed</span>   <- color is the only signal
 ```
+
+### Astigmatism & Halation
+
+Approximately 33% of people have some degree of astigmatism. On near-black backgrounds, light text "blooms" — the strokes spread and blur, making text physically uncomfortable to read for extended periods. This is called halation.
+
+The edgenative.dev design system addresses this with three measures:
+
+1. **Lifted backgrounds**: `canvas` at `#1f1f22` instead of `zinc-950` (`#09090b`). The reduced contrast between text and background eliminates halation while maintaining a dark aesthetic.
+2. **Heavier body weight**: `font-weight: 450` instead of 400. Thicker strokes resist the blooming effect.
+3. **Generous line-height**: 1.7+ for body text in content areas (e.g., editors, long-form reading surfaces).
+
+These are accessibility requirements, not style preferences. Do not regress them.
 
 ### Reduced Motion
 
@@ -824,7 +924,7 @@ Respect the user's `prefers-reduced-motion` preference. Add this to `app.css`:
 }
 ```
 
-This disables all entrance animations, staggered reveals, hover transitions, and shimmer effects in one rule. Do **not** add per-element motion queries — the global rule covers everything.
+This disables all entrance animations, staggered reveals, hover transitions, and shimmer effects in one rule. Do **not** add per-element motion queries -- the global rule covers everything.
 
 ### SPA Route Changes
 
@@ -841,7 +941,7 @@ Every project must include a skip-to-content link as the first focusable element
 ```tsx
 <a
   href="#main-content"
-  className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:rounded-lg focus:bg-zinc-900 focus:px-4 focus:py-2 focus:text-accent-400 focus:ring-2 focus:ring-accent-500/50"
+  className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:rounded-lg focus:bg-zinc-800 focus:px-4 focus:py-2 focus:text-accent-400 focus:ring-2 focus:ring-accent-500/50"
 >
   Skip to content
 </a>
@@ -851,6 +951,6 @@ The `<main>` element must have `id="main-content"` to receive the skip target.
 
 ### Images & Media
 
-- All `<img>` elements must have an `alt` attribute — descriptive for content images, `alt=""` for decorative ones
+- All `<img>` elements must have an `alt` attribute -- descriptive for content images, `alt=""` for decorative ones
 - Videos must have captions or a text transcript
 - SVG icons used inline must have `aria-hidden="true"` when decorative, or `role="img"` + `<title>` when informational
