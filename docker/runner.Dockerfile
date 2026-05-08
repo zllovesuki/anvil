@@ -32,6 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       > /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
+    && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx \
+    && update-alternatives --install /usr/local/bin/node node /usr/bin/node 100 \
+    && update-alternatives --install /usr/local/bin/npm npm /usr/bin/npm 100 \
+    && update-alternatives --install /usr/local/bin/npx npx /usr/bin/npx 100 \
     && npm install --global corepack \
     && rm -rf /var/lib/apt/lists/*
 
