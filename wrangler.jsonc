@@ -76,7 +76,7 @@
 		{
 			"class_name": "Sandbox",
 			"image": "./docker/runner.Dockerfile",
-			"instance_type": "standard-1",
+			"instance_type": "standard-3",
 			"max_instances": 10,
 		},
 	],
