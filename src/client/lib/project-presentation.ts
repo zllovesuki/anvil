@@ -100,13 +100,7 @@ export const formatProjectUpdatedLabel = (project: ProjectSummary): string =>
 
 export const inferRepositoryProvider = (repoUrl: string): string => {
   try {
-    const hostname = new URL(repoUrl).hostname.replace(/^www\./u, "");
-    const [first, second] = hostname.split(".");
-    if (first && second) {
-      return `${first}.${second}`;
-    }
-
-    return hostname;
+    return new URL(repoUrl).hostname.replace(/^www\./u, "");
   } catch {
     return "custom";
   }
