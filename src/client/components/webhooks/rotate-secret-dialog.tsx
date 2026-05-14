@@ -1,4 +1,4 @@
-import type { WebhookProvider, WebhookSummary } from "@/contracts";
+import type { WebhookSummary } from "@/contracts";
 import { useState } from "react";
 import { RotateCw } from "lucide-react";
 import { ConfirmDialog } from "@/client/components/ui";

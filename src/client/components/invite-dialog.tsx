@@ -1,8 +1,10 @@
 import { Check, Copy, Link2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/client/auth";
-import { Button, Dialog, ErrorBanner } from "@/client/components/ui";
-import { formatApiError, getApiClient } from "@/client/lib";
+import { Button } from "@/client/components/ui/button";
+import { Dialog } from "@/client/components/ui/dialog";
+import { ErrorBanner } from "@/client/components/ui/error-banner";
+import { formatApiError, getApiClient } from "@/client/lib/api";
 import { useToast } from "@/client/toast";
 
 interface InviteDialogProps {

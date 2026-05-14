@@ -1,19 +1,19 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 import type { LoginRequest, UserSummary } from "@/contracts";
+import { ApiError } from "@/client/lib/api-contract";
+import { getApiClient } from "@/client/lib/api";
+import { SESSION_EXPIRED_EVENT } from "@/client/lib/live-api-request";
 import {
-  ApiError,
   type AuthMode,
-  SESSION_EXPIRED_EVENT,
   clearStoredBookmark,
   clearStoredSessionId,
   getEffectiveAuthMode,
-  getApiClient,
   getStoredAuthMode,
   getStoredSessionId,
   isMockAuthModeSelectable,
   setStoredAuthMode,
   setStoredSessionId,
-} from "@/client/lib";
+} from "@/client/lib/storage";
 import { useToast } from "@/client/toast";
 import { AuthContext, type AuthContextValue, type StartupErrorState } from "@/client/auth/auth-context";
 
@@ -26,12 +26,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { pushToast } = useToast();
   const [mode, setModeState] = useState<AuthMode>(() => getEffectiveAuthMode());
   const [user, setUser] = useState<UserSummary | null>(null);
-  const userRef = useRef(user);
-  userRef.current = user;
   const [inviteTtlSeconds, setInviteTtlSeconds] = useState<number | null>(null);
   const [startupError, setStartupError] = useState<StartupErrorState | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const canSelectMode = isMockAuthModeSelectable();
+  const handleSessionExpired = useEffectEvent(() => {
+    if (user === null) return;
+    clearClientAuthState();
+    setUser(null);
+    setInviteTtlSeconds(null);
+    pushToast({
+      tone: "error",
+      title: "Session expired",
+      message: "Your session was invalidated. Please sign in again.",
+    });
+  });
 
   useEffect(() => {
     const storedMode = getStoredAuthMode();
@@ -41,9 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setStoredAuthMode(mode);
     clearClientAuthState();
-    setUser(null);
-    setInviteTtlSeconds(null);
-    setStartupError(null);
   }, [mode]);
 
   useEffect(() => {
@@ -99,7 +105,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    setIsInitializing(true);
     void hydrateSession();
 
     return () => {
@@ -108,21 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [mode]);
 
   useEffect(() => {
-    const handleSessionExpired = () => {
-      if (userRef.current === null) return;
-      clearClientAuthState();
-      setUser(null);
-      setInviteTtlSeconds(null);
-      pushToast({
-        tone: "error",
-        title: "Session expired",
-        message: "Your session was invalidated. Please sign in again.",
-      });
-    };
-
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-  }, [pushToast]);
+  }, []);
 
   const signIn = async (payload: LoginRequest): Promise<void> => {
     const response = await getApiClient(mode).login(payload);
@@ -168,6 +161,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setInviteTtlSeconds(null);
     setStartupError(null);
+    setIsInitializing(true);
     setModeState(resolvedMode);
     pushToast({
       tone: "info",

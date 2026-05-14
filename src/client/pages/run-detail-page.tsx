@@ -1,9 +1,10 @@
 import type { LogEvent, RunDetail, RunWsStateMessage } from "@/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, GitBranch, GitCommitHorizontal, Terminal, Timer, XCircle, Zap } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/client/auth";
-import { LoadingPanel, StatusPill, LogViewer, StepRow } from "@/client/components";
+import { LoadingPanel, LogViewer, StatusPill, StepRow } from "@/client/components";
 import { Breadcrumbs, Button, Card, ConfirmDialog, ErrorBanner } from "@/client/components/ui";
 import { useLogStream } from "@/client/hooks";
 import {
@@ -14,242 +15,93 @@ import {
   formatTimestamp,
   getApiClient,
   mergeLogEventBySeq,
+  queryKeys,
+  type AuthMode,
 } from "@/client/lib";
 import { useToast } from "@/client/toast";
+
 const TERMINAL_STATUSES = new Set(["passed", "failed", "canceled"]);
-export const RunDetailPage = () => {
-  const { runId } = useParams<{
-    runId: string;
-  }>();
-  const { mode } = useAuth();
+
+interface RunDetailContentProps {
+  detail: RunDetail;
+  mode: AuthMode;
+  projectName: string | null;
+  runId: string;
+}
+
+const isTerminalStatus = (status: string): boolean => TERMINAL_STATUSES.has(status);
+
+const mergeLogs = (currentLogs: LogEvent[], incomingLogs: LogEvent[]): LogEvent[] =>
+  incomingLogs.reduce((merged, event) => mergeLogEventBySeq(merged, event), currentLogs);
+
+const RunDetailContent = ({ detail, mode, projectName, runId }: RunDetailContentProps) => {
+  const queryClient = useQueryClient();
   const { pushToast } = useToast();
-  const runKey = runId ? `${mode}:${runId}` : null;
-  const [detail, setDetail] = useState<RunDetail | null>(null);
-  const [loadedRunKey, setLoadedRunKey] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [logs, setLogs] = useState<LogEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [canceling, setCanceling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorRunKey, setErrorRunKey] = useState<string | null>(null);
-  // overview is now header-integrated, no collapse state needed
-  const maxSeqRef = useRef(0);
-  const detailRef = useRef(detail);
-  detailRef.current = detail;
-  const loadedRunKeyRef = useRef(loadedRunKey);
-  loadedRunKeyRef.current = loadedRunKey;
-  const runKeyRef = useRef(runKey);
-  runKeyRef.current = runKey;
-  const requestIdRef = useRef(0);
-  const hasCurrentDetail = detail !== null && loadedRunKey === runKey;
-  const currentError = errorRunKey === runKey ? error : null;
-  const isTerminal = hasCurrentDetail && detail ? TERMINAL_STATUSES.has(detail.run.status) : false;
+  const [streamLogs, setStreamLogs] = useState<LogEvent[]>(() => detail.recentLogs);
+  const { run, steps, currentStep, errorMessage, detailAvailable } = detail;
+  const isTerminal = isTerminalStatus(run.status);
   const isLive = mode === "live";
-  const loadRun = useCallback(
-    async ({
-      clearState = false,
-      seedLogs = false,
-      showToast = true,
-      fetchProjectName = false,
-    }: {
-      clearState?: boolean;
-      seedLogs?: boolean;
-      showToast?: boolean;
-      fetchProjectName?: boolean;
-    } = {}) => {
-      if (!runId || !runKey) {
-        setDetail(null);
-        setLoadedRunKey(null);
-        setProjectName(null);
-        setLogs([]);
-        maxSeqRef.current = 0;
-        setError(null);
-        setErrorRunKey(null);
-        setLoading(false);
-        return;
-      }
-      const requestId = ++requestIdRef.current;
-      const shouldShowSpinner = clearState || detailRef.current === null || loadedRunKeyRef.current !== runKey;
-      if (clearState) {
-        setDetail(null);
-        setLoadedRunKey(null);
-        setProjectName(null);
-        setLogs([]);
-        maxSeqRef.current = 0;
-        setError(null);
-        setErrorRunKey(null);
-      }
-      if (shouldShowSpinner) {
-        setLoading(true);
-      }
-      try {
-        const client = getApiClient(mode);
-        const result = await client.getRunDetail(runId);
-        if (requestId !== requestIdRef.current || runKeyRef.current !== runKey) {
-          return;
-        }
-        setDetail(result);
-        setLoadedRunKey(runKey);
-        setError(null);
-        setErrorRunKey(null);
-        if (seedLogs || TERMINAL_STATUSES.has(result.run.status)) {
-          setLogs(result.recentLogs);
-          maxSeqRef.current = result.recentLogs.reduce((max, event) => Math.max(max, event.seq), 0);
-        }
-        if (fetchProjectName) {
-          void client
-            .getProjectDetail(result.run.projectId)
-            .then((projectDetail) => {
-              if (requestId === requestIdRef.current && runKeyRef.current === runKey) {
-                setProjectName(projectDetail.project.name);
-              }
-            })
-            .catch(() => {
-              if (requestId === requestIdRef.current && runKeyRef.current === runKey) {
-                setProjectName(null);
-              }
-            });
-        }
-      } catch (reason) {
-        if (requestId !== requestIdRef.current || runKeyRef.current !== runKey) {
-          return;
-        }
-        const message = formatApiError(reason);
-        setError(message);
-        setErrorRunKey(runKey);
-        if (clearState) {
-          setDetail(null);
-          setLoadedRunKey(null);
-          setProjectName(null);
-          setLogs([]);
-          maxSeqRef.current = 0;
-        }
-        if (showToast) {
-          pushToast({ tone: "error", title: "Failed to load run", message });
-        }
-      } finally {
-        if (shouldShowSpinner && requestId === requestIdRef.current && runKeyRef.current === runKey) {
-          setLoading(false);
-        }
-      }
+
+  const cancelRunMutation = useMutation({
+    mutationFn: () => getApiClient(mode).cancelRun(runId),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.runDetail(mode, runId), result);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, result.run.projectId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(mode, result.run.projectId) });
+      pushToast({ tone: "success", title: "Cancel requested", message: "Run cancellation has been requested." });
     },
-    [mode, pushToast, runId, runKey],
-  );
-  useEffect(() => {
-    void loadRun({ clearState: true, seedLogs: true, showToast: false, fetchProjectName: true });
-  }, [loadRun]);
-  useEffect(() => {
-    setCanceling(false);
-  }, [runKey]);
-  // Polling while non-terminal
-  useEffect(() => {
-    if (
-      !runId ||
-      !detailRef.current ||
-      loadedRunKeyRef.current !== runKey ||
-      TERMINAL_STATUSES.has(detailRef.current.run.status)
-    ) {
-      return;
-    }
-    const interval = setInterval(() => {
-      void loadRun({ showToast: false });
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, [loadRun, runId, runKey]);
-  // WebSocket log stream
-  const handleLogEvent = useCallback((event: LogEvent) => {
-    setLogs((prev) => {
-      maxSeqRef.current = event.seq;
-      return mergeLogEventBySeq(prev, event);
+    onError: (reason) => {
+      pushToast({ tone: "error", title: "Cancel failed", message: formatApiError(reason) });
+    },
+  });
+
+  const handleLogEvent = (event: LogEvent) => {
+    setStreamLogs((current) => mergeLogEventBySeq(current, event));
+  };
+
+  const handleStateUpdate = (message: RunWsStateMessage) => {
+    queryClient.setQueryData<RunDetail>(queryKeys.runDetail(mode, runId), (current) => {
+      const source = current ?? detail;
+      return {
+        ...source,
+        run: {
+          ...source.run,
+          status: message.run.status,
+          startedAt: message.run.startedAt,
+          finishedAt: message.run.finishedAt,
+          exitCode: message.run.exitCode,
+        },
+        currentStep: message.run.currentStep,
+        errorMessage: message.run.errorMessage,
+        steps: message.steps,
+        detailAvailable: true,
+      };
     });
-  }, []);
-  const handleStateUpdate = useCallback(
-    (msg: RunWsStateMessage) => {
-      setDetail((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          run: {
-            ...prev.run,
-            status: msg.run.status,
-            startedAt: msg.run.startedAt,
-            finishedAt: msg.run.finishedAt,
-            exitCode: msg.run.exitCode,
-          },
-          currentStep: msg.run.currentStep,
-          errorMessage: msg.run.errorMessage,
-          steps: msg.steps,
-          detailAvailable: true,
-        };
-      });
-      if (TERMINAL_STATUSES.has(msg.run.status)) {
-        void loadRun({ seedLogs: true, showToast: false });
-      }
-    },
-    [loadRun],
-  );
+
+    if (isTerminalStatus(message.run.status)) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.runDetail(mode, runId) });
+    }
+  };
+
   const logStreamStatus = useLogStream({
-    runId: runId ?? "",
-    enabled: !isTerminal && isLive && !loading,
+    runId,
+    enabled: !isTerminal && isLive,
     onEvent: handleLogEvent,
     onStateUpdate: handleStateUpdate,
   });
-  // Cancel handler
-  const handleCancel = async () => {
-    if (!runId || canceling) return;
-    const activeRunKey = runKeyRef.current;
-    if (!activeRunKey) return;
-    setCanceling(true);
-    try {
-      const result = await getApiClient(mode).cancelRun(runId);
-      if (runKeyRef.current !== activeRunKey) {
-        return;
-      }
-      setDetail(result);
-      setLoadedRunKey(activeRunKey);
-      setError(null);
-      setErrorRunKey(null);
-      if (TERMINAL_STATUSES.has(result.run.status)) {
-        setLogs(result.recentLogs);
-        maxSeqRef.current = result.recentLogs.reduce((max, event) => Math.max(max, event.seq), 0);
-      }
-      pushToast({ tone: "success", title: "Cancel requested", message: "Run cancellation has been requested." });
-    } catch (reason) {
-      if (runKeyRef.current !== activeRunKey) {
-        return;
-      }
-      pushToast({ tone: "error", title: "Cancel failed", message: formatApiError(reason) });
-    } finally {
-      if (runKeyRef.current === activeRunKey) {
-        setCanceling(false);
-      }
-    }
-  };
-  const pageTitle = `Run ${runId?.slice(0, 12) ?? ""}`;
-  if (loading || (runKey !== null && !hasCurrentDetail && currentError === null)) {
-    return (
-      <>
-        <h1 className="sr-only">{pageTitle}</h1>
-        <LoadingPanel label="Loading run..." />
-      </>
-    );
-  }
-  if (currentError && !hasCurrentDetail) {
-    return (
-      <div className="space-y-4">
-        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
-        <ErrorBanner message={currentError} />
-      </div>
-    );
-  }
-  if (!hasCurrentDetail || !detail) {
-    return null;
-  }
-  const { run, steps, currentStep, errorMessage, detailAvailable } = detail;
+
+  const displayedLogs = useMemo(
+    () => (isTerminal ? mergeLogs(streamLogs, detail.recentLogs) : streamLogs),
+    [detail.recentLogs, isTerminal, streamLogs],
+  );
+
+  const pageTitle = `Run ${runId.slice(0, 12)}`;
   const commitDisplay = run.commitSha ? run.commitSha.slice(0, 7) : "\u2014";
-  const canCancel = !TERMINAL_STATUSES.has(run.status);
+  const canCancel = !isTerminalStatus(run.status);
   const isCancelPending = run.status === "cancel_requested" || run.status === "canceling";
+  const canceling = cancelRunMutation.isPending;
+
   return (
     <div className="animate-slide-up space-y-5">
       <h1 className="sr-only">{pageTitle}</h1>
@@ -262,7 +114,6 @@ export const RunDetailPage = () => {
           ]}
         />
 
-        {/* Header-integrated overview */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-400">
           <StatusPill status={run.status} />
           <span className="inline-flex items-center gap-1">
@@ -293,22 +144,16 @@ export const RunDetailPage = () => {
         </div>
       </div>
 
-      {/* Detail unavailable banner */}
       {!detailAvailable ? (
         <div className="rounded-2xl border border-accent-500/20 bg-accent-500/10 p-4 text-sm text-accent-400">
           Detailed run data is no longer available.
         </div>
       ) : null}
 
-      {currentError ? <ErrorBanner message={currentError} /> : null}
-
-      {/* Error message */}
       {errorMessage ? <ErrorBanner message={formatRunFailureMessage(errorMessage)} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]">
-        {/* Left column — steps */}
         <div className="space-y-4">
-          {/* Steps section */}
           {steps.length > 0 ? (
             <Card>
               <h2 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-zinc-100">
@@ -323,7 +168,6 @@ export const RunDetailPage = () => {
             </Card>
           ) : null}
 
-          {/* Cancel button */}
           {canCancel ? (
             <>
               <Button
@@ -340,7 +184,7 @@ export const RunDetailPage = () => {
                 open={confirmCancelOpen}
                 onConfirm={() => {
                   setConfirmCancelOpen(false);
-                  void handleCancel();
+                  cancelRunMutation.mutate();
                 }}
                 onCancel={() => setConfirmCancelOpen(false)}
                 title="Cancel this run?"
@@ -352,9 +196,76 @@ export const RunDetailPage = () => {
           ) : null}
         </div>
 
-        {/* Right column — logs */}
-        <LogViewer logs={logs} logStreamStatus={logStreamStatus} />
+        <LogViewer logs={displayedLogs} logStreamStatus={logStreamStatus} />
       </div>
     </div>
+  );
+};
+
+export const RunDetailPage = () => {
+  const { runId } = useParams<{ runId: string }>();
+  const { mode } = useAuth();
+  const resolvedRunId = runId ?? "";
+
+  const runQuery = useQuery({
+    queryKey: queryKeys.runDetail(mode, resolvedRunId),
+    queryFn: () => getApiClient(mode).getRunDetail(resolvedRunId),
+    enabled: resolvedRunId.length > 0,
+    refetchInterval: (query) => {
+      const detail = query.state.data;
+      return detail !== undefined && !isTerminalStatus(detail.run.status) ? 30_000 : false;
+    },
+  });
+
+  const projectId = runQuery.data?.run.projectId ?? "";
+  const projectNameQuery = useQuery({
+    queryKey: queryKeys.projectDetail(mode, projectId),
+    queryFn: () => getApiClient(mode).getProjectDetail(projectId),
+    enabled: projectId.length > 0,
+    staleTime: 60_000,
+  });
+
+  const pageTitle = `Run ${runId?.slice(0, 12) ?? ""}`;
+
+  if (!runId) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
+        <ErrorBanner message="Missing run id." />
+      </div>
+    );
+  }
+
+  if (runQuery.isPending) {
+    return (
+      <>
+        <h1 className="sr-only">{pageTitle}</h1>
+        <LoadingPanel label="Loading run..." />
+      </>
+    );
+  }
+
+  if (runQuery.isError && !runQuery.data) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
+        <ErrorBanner message={formatApiError(runQuery.error)} />
+      </div>
+    );
+  }
+
+  if (!runQuery.data) return null;
+
+  return (
+    <>
+      {runQuery.isError ? <ErrorBanner message={formatApiError(runQuery.error)} /> : null}
+      <RunDetailContent
+        key={`${mode}:${runId}`}
+        detail={runQuery.data}
+        mode={mode}
+        projectName={projectNameQuery.data?.project.name ?? null}
+        runId={runId}
+      />
+    </>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { AppConfigErrorPage } from "@/client/components/app-config-error-page";
@@ -6,6 +6,7 @@ import { ErrorBoundary } from "@/client/components/error-boundary";
 import { Header } from "@/client/components/header";
 import { Footer } from "@/client/components/footer";
 import { InviteDialog } from "@/client/components/invite-dialog";
+import { LoadingPanel } from "@/client/components/loading-panel";
 import { useRouteAnnouncer } from "@/client/hooks/use-route-announcer";
 
 export const AppShell = () => {
@@ -27,7 +28,13 @@ export const AppShell = () => {
       <main id="main-content" className={`flex-1 sm:overflow-y-auto${isLandingRoute ? " overflow-x-clip" : ""}`}>
         <div className={isLandingRoute ? undefined : "mx-auto max-w-7xl px-4 py-6 sm:px-6"}>
           <ErrorBoundary>
-            {startupError ? <AppConfigErrorPage message={startupError.message} /> : <Outlet />}
+            {startupError ? (
+              <AppConfigErrorPage message={startupError.message} />
+            ) : (
+              <Suspense fallback={<LoadingPanel label="Loading page..." />}>
+                <Outlet />
+              </Suspense>
+            )}
           </ErrorBoundary>
         </div>
       </main>

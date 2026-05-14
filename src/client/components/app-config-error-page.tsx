@@ -1,6 +1,6 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/client/auth";
-import { Button } from "@/client/components/ui";
+import { Button } from "@/client/components/ui/button";
 
 export const AppConfigErrorPage = ({ message }: { message: string }) => {
   const { canSelectMode } = useAuth();

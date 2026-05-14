@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { RunWsLogMessage, RunWsStateMessage, type LogEvent, type RunWsMessage } from "@/contracts";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { RunWsStateMessage, type LogEvent, type RunWsMessage } from "@/contracts";
 import { useAuth } from "@/client/auth";
 import { getApiClient } from "@/client/lib";
 
@@ -20,14 +20,15 @@ export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backoffRef = useRef(1000);
-  const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
-  const onStateUpdateRef = useRef(onStateUpdate);
-  onStateUpdateRef.current = onStateUpdate;
+  const emitEvent = useEffectEvent((event: LogEvent) => {
+    onEvent(event);
+  });
+  const emitStateUpdate = useEffectEvent((message: RunWsStateMessage) => {
+    onStateUpdate?.(message);
+  });
 
   useEffect(() => {
     if (!enabled) {
-      setStatus("idle");
       return;
     }
 
@@ -62,9 +63,9 @@ export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
           try {
             const message = JSON.parse(event.data as string) as RunWsMessage;
             if (message.type === "log") {
-              onEventRef.current(message.event);
+              emitEvent(message.event);
             } else if (message.type === "state") {
-              onStateUpdateRef.current?.(message);
+              emitStateUpdate(message);
             }
           } catch {
             // ignore malformed messages
@@ -113,5 +114,5 @@ export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
     };
   }, [enabled, runId, mode]);
 
-  return status;
+  return enabled ? status : "idle";
 };

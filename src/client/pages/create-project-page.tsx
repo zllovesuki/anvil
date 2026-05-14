@@ -1,5 +1,5 @@
 import { FlaskConical, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { Badge, Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
@@ -38,22 +38,17 @@ export const CreateProjectPage = () => {
   const [slugTouched, setSlugTouched] = useState(false);
 
   const updateField = (field: keyof ProjectFormState, value: ProjectFormState[keyof ProjectFormState]) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm((current) => {
+      const next = {
+        ...current,
+        [field]: value,
+      };
+      if (field === "name" && !slugTouched) {
+        next.projectSlug = buildProjectSlug(String(value));
+      }
+      return next;
+    });
   };
-
-  useEffect(() => {
-    if (slugTouched) {
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      projectSlug: buildProjectSlug(current.name),
-    }));
-  }, [slugTouched, form.name]);
 
   const loadExample = () => {
     setForm({

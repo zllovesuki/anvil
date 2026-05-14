@@ -1,11 +1,13 @@
-import type { DispatchMode, ProjectConfigSummary } from "@/contracts";
+import type { DispatchMode, ProjectConfigSummary, ProjectDetail, UpdateProjectRequest } from "@/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { LoadingPanel } from "@/client/components";
 import { Badge, Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
-import { formatApiError, getApiClient, inferRepositoryProvider } from "@/client/lib";
+import { formatApiError, getApiClient, inferRepositoryProvider, queryKeys, type AuthMode } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
 interface SettingsFormState {
@@ -17,67 +19,61 @@ interface SettingsFormState {
   dispatchMode: DispatchMode;
 }
 
-export const ProjectSettingsPage = () => {
-  const { projectId } = useParams<{ projectId: string }>();
+interface ProjectSettingsFormProps {
+  canSelectMode: boolean;
+  mode: AuthMode;
+  project: ProjectConfigSummary;
+  projectId: string;
+}
+
+const buildInitialForm = (project: ProjectConfigSummary): SettingsFormState => ({
+  name: project.name,
+  repoUrl: project.repoUrl,
+  defaultBranch: project.defaultBranch,
+  configPath: project.configPath,
+  repoToken: "",
+  dispatchMode: project.dispatchMode,
+});
+
+const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: ProjectSettingsFormProps) => {
   const navigate = useNavigate();
-  const { canSelectMode, mode } = useAuth();
+  const queryClient = useQueryClient();
   const { pushToast } = useToast();
+  const [form, setForm] = useState<SettingsFormState>(() => buildInitialForm(project));
 
-  const [project, setProject] = useState<ProjectConfigSummary | null>(null);
-  const [form, setForm] = useState<SettingsFormState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const updateProjectMutation = useMutation({
+    mutationFn: (payload: UpdateProjectRequest) => getApiClient(mode).updateProject(projectId, payload),
+    onSuccess: (response) => {
+      queryClient.setQueryData<ProjectDetail>(queryKeys.projectDetail(mode, projectId), (current) =>
+        current ? { ...current, project: response.project } : current,
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, projectId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot(mode) });
 
-  const requestIdRef = useRef(0);
-
-  const loadProject = useCallback(async () => {
-    if (!projectId) return;
-
-    const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setLoadError(null);
-
-    try {
-      const detail = await getApiClient(mode).getProjectDetail(projectId);
-      if (requestId !== requestIdRef.current) return;
-
-      setProject(detail.project);
-      setForm({
-        name: detail.project.name,
-        repoUrl: detail.project.repoUrl,
-        defaultBranch: detail.project.defaultBranch,
-        configPath: detail.project.configPath,
-        repoToken: "",
-        dispatchMode: detail.project.dispatchMode,
+      pushToast({
+        tone: "success",
+        title: "Project updated",
+        message: `${response.project.ownerSlug}/${response.project.projectSlug} settings saved.`,
       });
-    } catch (reason) {
-      if (requestId !== requestIdRef.current) return;
-      setLoadError(formatApiError(reason));
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [mode, projectId]);
+      navigate(`/app/projects/${projectId}`, { replace: true });
+    },
+    onError: (reason) => {
+      pushToast({ tone: "error", title: "Update failed", message: formatApiError(reason) });
+    },
+  });
 
-  useEffect(() => {
-    void loadProject();
-  }, [loadProject]);
-
-  const updateField = (field: keyof SettingsFormState, value: string) => {
-    setForm((current) => (current ? { ...current, [field]: value } : current));
+  const updateField = <Field extends keyof SettingsFormState>(field: Field, value: SettingsFormState[Field]) => {
+    updateProjectMutation.reset();
+    setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (!projectId || !form || !project || submitting) return;
+    if (updateProjectMutation.isPending) return;
 
-    setSubmitting(true);
-    setSubmitError(null);
+    updateProjectMutation.reset();
 
-    const payload: Record<string, string | null | undefined> = {};
+    const payload: UpdateProjectRequest = {};
     if (form.name !== project.name) payload.name = form.name;
     if (form.repoUrl !== project.repoUrl) payload.repoUrl = form.repoUrl;
     if (form.defaultBranch !== project.defaultBranch) payload.defaultBranch = form.defaultBranch;
@@ -87,42 +83,14 @@ export const ProjectSettingsPage = () => {
 
     if (Object.keys(payload).length === 0) {
       pushToast({ tone: "success", title: "No changes", message: "Nothing to update." });
-      setSubmitting(false);
       return;
     }
 
-    void getApiClient(mode)
-      .updateProject(projectId, payload)
-      .then((response) => {
-        pushToast({
-          tone: "success",
-          title: "Project updated",
-          message: `${response.project.ownerSlug}/${response.project.projectSlug} settings saved.`,
-        });
-        navigate(`/app/projects/${projectId}`, { replace: true });
-      })
-      .catch((reason: unknown) => {
-        const message = formatApiError(reason);
-        setSubmitError(message);
-        pushToast({ tone: "error", title: "Update failed", message });
-      })
-      .finally(() => {
-        setSubmitting(false);
-      });
+    updateProjectMutation.mutate(payload);
   };
 
-  if (loading) {
-    return <LoadingPanel label="Loading project settings..." />;
-  }
-
-  if (loadError || !project || !form) {
-    return (
-      <div className="space-y-4">
-        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
-        <ErrorBanner message={loadError ?? "Failed to load project."} />
-      </div>
-    );
-  }
+  const submitError = updateProjectMutation.isError ? formatApiError(updateProjectMutation.error) : null;
+  const submitting = updateProjectMutation.isPending;
 
   return (
     <div className="animate-slide-up space-y-5">
@@ -217,7 +185,6 @@ export const ProjectSettingsPage = () => {
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
           <Card className="p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Repository host</p>
@@ -269,5 +236,49 @@ export const ProjectSettingsPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+export const ProjectSettingsPage = () => {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { canSelectMode, mode } = useAuth();
+  const resolvedProjectId = projectId ?? "";
+
+  const detailQuery = useQuery({
+    queryKey: queryKeys.projectDetail(mode, resolvedProjectId),
+    queryFn: () => getApiClient(mode).getProjectDetail(resolvedProjectId),
+    enabled: resolvedProjectId.length > 0,
+  });
+
+  if (!projectId) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
+        <ErrorBanner message="Missing project id." />
+      </div>
+    );
+  }
+
+  if (detailQuery.isPending) {
+    return <LoadingPanel label="Loading project settings..." />;
+  }
+
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
+        <ErrorBanner message={detailQuery.isError ? formatApiError(detailQuery.error) : "Failed to load project."} />
+      </div>
+    );
+  }
+
+  return (
+    <ProjectSettingsForm
+      key={`${mode}:${projectId}:${detailQuery.data.project.updatedAt}`}
+      canSelectMode={canSelectMode}
+      mode={mode}
+      project={detailQuery.data.project}
+      projectId={projectId}
+    />
   );
 };

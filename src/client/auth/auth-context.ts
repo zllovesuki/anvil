@@ -1,6 +1,6 @@
 import { createContext } from "react";
 import type { LoginRequest, UserSummary } from "@/contracts";
-import type { AuthMode } from "@/client/lib";
+import type { AuthMode } from "@/client/lib/storage";
 
 export interface StartupErrorState {
   code: string;

@@ -419,9 +419,8 @@ export const createMockApiClient = (): ApiClient => ({
       creating: true,
     });
     const timestamp = nowIso();
-    let generatedSecret: string | null = null;
     const secret = body.secret ?? randomString(SESSION_ID_ALPHABET, 32);
-    generatedSecret = body.secret ? null : secret;
+    const generatedSecret = body.secret ? null : secret;
     state.webhooks.push({
       id: randomEntityId("whk"),
       projectId,

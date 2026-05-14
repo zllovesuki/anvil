@@ -9,7 +9,7 @@ export const buildMockRunDetail = (run: RunSummary): RunDetail => {
   let step2Status: string;
   let step1ExitCode: number | null = null;
   let step2ExitCode: number | null = null;
-  let step1StartedAt: string | null = run.startedAt;
+  const step1StartedAt: string | null = run.startedAt;
   let step1FinishedAt: string | null = null;
   let step2StartedAt: string | null = null;
   let step2FinishedAt: string | null = null;

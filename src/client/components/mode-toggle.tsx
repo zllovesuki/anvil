@@ -1,4 +1,4 @@
-import type { AuthMode } from "@/client/lib";
+import type { AuthMode } from "@/client/lib/storage";
 
 interface ModeToggleProps {
   currentMode: AuthMode;

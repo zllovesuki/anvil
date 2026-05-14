@@ -1,12 +1,18 @@
-import type { ProjectDetail, RunSummary } from "@/contracts";
+import type { ProjectDetail } from "@/contracts";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/client/auth";
-import { WebhookCard, ProjectMetadataCard, RunRow } from "@/client/components";
+import { ProjectMetadataCard, RunRow, WebhookCard } from "@/client/components";
 import { Breadcrumbs, Button, EmptyState, ErrorBanner, Skeleton } from "@/client/components/ui";
-import { formatApiError, getApiClient } from "@/client/lib";
+import { formatApiError, getApiClient, queryKeys } from "@/client/lib";
 import { useToast } from "@/client/toast";
+
+const RUN_PAGE_LIMIT = 20;
+
+const hasRunActivity = (detail: ProjectDetail | undefined): boolean =>
+  detail !== undefined && (detail.activeRun !== null || detail.pendingRuns.length > 0);
+
 const ProjectDetailSkeleton = () => (
   <div className="animate-slide-up space-y-5">
     <Skeleton className="h-5 w-48" />
@@ -40,173 +46,65 @@ const ProjectDetailSkeleton = () => (
     </div>
   </div>
 );
+
 export const ProjectDetailPage = () => {
-  const { projectId } = useParams<{
-    projectId: string;
-  }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const { mode } = useAuth();
   const { pushToast } = useToast();
-  const projectKey = projectId ? `${mode}:${projectId}` : null;
-  const [detail, setDetail] = useState<ProjectDetail | null>(null);
-  const [loadedProjectKey, setLoadedProjectKey] = useState<string | null>(null);
-  const [runs, setRuns] = useState<RunSummary[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [triggering, setTriggering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorProjectKey, setErrorProjectKey] = useState<string | null>(null);
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
-  const detailRef = useRef(detail);
-  detailRef.current = detail;
-  const loadedProjectKeyRef = useRef(loadedProjectKey);
-  loadedProjectKeyRef.current = loadedProjectKey;
-  const projectKeyRef = useRef(projectKey);
-  projectKeyRef.current = projectKey;
-  const requestIdRef = useRef(0);
-  const loadProject = useCallback(
-    async ({
-      clearState = false,
-      showToast = true,
-    }: {
-      clearState?: boolean;
-      showToast?: boolean;
-    } = {}) => {
-      if (!projectId || !projectKey) {
-        setDetail(null);
-        setLoadedProjectKey(null);
-        setRuns([]);
-        setNextCursor(null);
-        setError(null);
-        setErrorProjectKey(null);
-        setLoading(false);
-        return;
-      }
-      const requestId = ++requestIdRef.current;
-      const shouldShowSpinner = clearState || detailRef.current === null || loadedProjectKeyRef.current !== projectKey;
-      if (clearState) {
-        setDetail(null);
-        setLoadedProjectKey(null);
-        setRuns([]);
-        setNextCursor(null);
-        setError(null);
-        setErrorProjectKey(null);
-      }
-      if (shouldShowSpinner) {
-        setLoading(true);
-      }
-      try {
-        const client = getApiClient(mode);
-        const [detailResponse, runsResponse] = await Promise.all([
-          client.getProjectDetail(projectId),
-          client.getProjectRuns(projectId, { limit: 20 }),
-        ]);
-        if (requestId !== requestIdRef.current || projectKeyRef.current !== projectKey) {
-          return;
-        }
-        setDetail(detailResponse);
-        setLoadedProjectKey(projectKey);
-        setRuns(runsResponse.runs);
-        setNextCursor(runsResponse.nextCursor);
-        setError(null);
-        setErrorProjectKey(null);
-      } catch (reason) {
-        if (requestId !== requestIdRef.current || projectKeyRef.current !== projectKey) {
-          return;
-        }
-        const message = formatApiError(reason);
-        setError(message);
-        setErrorProjectKey(projectKey);
-        if (clearState) {
-          setDetail(null);
-          setLoadedProjectKey(null);
-          setRuns([]);
-          setNextCursor(null);
-        }
-        if (showToast) {
-          pushToast({ tone: "error", title: "Failed to load project", message });
-        }
-      } finally {
-        if (shouldShowSpinner && requestId === requestIdRef.current && projectKeyRef.current === projectKey) {
-          setLoading(false);
-        }
-      }
-    },
-    [mode, projectId, projectKey, pushToast],
-  );
-  useEffect(() => {
-    void loadProject({ clearState: true, showToast: false });
-  }, [loadProject]);
-  useEffect(() => {
-    setTriggering(false);
-    setLoadingMore(false);
-    setLoadMoreError(null);
-  }, [projectKey]);
-  // Polling when active/pending runs exist
-  useEffect(() => {
-    const hasActivity =
-      detailRef.current !== null && loadedProjectKeyRef.current === projectKey
-        ? detailRef.current.activeRun !== null || detailRef.current.pendingRuns.length > 0
-        : false;
-    if (!hasActivity) {
-      return;
-    }
-    const interval = setInterval(() => {
-      void loadProject({ showToast: false });
-    }, 7000);
-    return () => clearInterval(interval);
-  }, [loadProject, projectKey]);
-  const handleTriggerRun = async () => {
-    if (!projectId || triggering) return;
-    const activeProjectKey = projectKeyRef.current;
-    if (!activeProjectKey) return;
-    setTriggering(true);
-    try {
-      const response = await getApiClient(mode).triggerRun(projectId);
-      if (projectKeyRef.current !== activeProjectKey) {
-        return;
-      }
+  const queryClient = useQueryClient();
+  const resolvedProjectId = projectId ?? "";
+
+  const detailQuery = useQuery({
+    queryKey: queryKeys.projectDetail(mode, resolvedProjectId),
+    queryFn: () => getApiClient(mode).getProjectDetail(resolvedProjectId),
+    enabled: resolvedProjectId.length > 0,
+    refetchInterval: (query) => (hasRunActivity(query.state.data) ? 7_000 : false),
+  });
+
+  const runsQuery = useInfiniteQuery({
+    queryKey: queryKeys.projectRuns(mode, resolvedProjectId),
+    queryFn: ({ pageParam }) =>
+      getApiClient(mode).getProjectRuns(resolvedProjectId, {
+        limit: RUN_PAGE_LIMIT,
+        cursor: pageParam ?? undefined,
+      }),
+    enabled: resolvedProjectId.length > 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: null as string | null,
+    refetchInterval: hasRunActivity(detailQuery.data) ? 7_000 : false,
+  });
+
+  const triggerRunMutation = useMutation({
+    mutationFn: () => getApiClient(mode).triggerRun(resolvedProjectId),
+    onSuccess: async (response) => {
       pushToast({ tone: "success", title: "Run triggered", message: `Run ${response.runId} queued.` });
-      await loadProject();
-    } catch (reason) {
-      if (projectKeyRef.current !== activeProjectKey) {
-        return;
-      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, resolvedProjectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(mode, resolvedProjectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot(mode) }),
+      ]);
+    },
+    onError: (reason) => {
       pushToast({ tone: "error", title: "Trigger failed", message: formatApiError(reason) });
-    } finally {
-      if (projectKeyRef.current === activeProjectKey) {
-        setTriggering(false);
-      }
-    }
+    },
+  });
+
+  const handleRefresh = async () => {
+    await Promise.all([detailQuery.refetch(), runsQuery.refetch()]);
   };
-  const handleLoadMore = async () => {
-    if (!projectId || !nextCursor || loadingMore) return;
-    const activeProjectKey = projectKeyRef.current;
-    if (!activeProjectKey) return;
-    setLoadingMore(true);
-    try {
-      const response = await getApiClient(mode).getProjectRuns(projectId, { limit: 20, cursor: nextCursor });
-      if (projectKeyRef.current !== activeProjectKey) {
-        return;
-      }
-      setRuns((prev) => [...prev, ...response.runs]);
-      setNextCursor(response.nextCursor);
-      setLoadMoreError(null);
-    } catch (reason) {
-      if (projectKeyRef.current !== activeProjectKey) {
-        return;
-      }
-      setLoadMoreError(formatApiError(reason));
-    } finally {
-      if (projectKeyRef.current === activeProjectKey) {
-        setLoadingMore(false);
-      }
-    }
-  };
-  const hasCurrentDetail = detail !== null && loadedProjectKey === projectKey;
-  const currentError = errorProjectKey === projectKey ? error : null;
-  const pageTitle = detail?.project.name ?? projectId?.slice(0, 8) ?? "";
-  if (loading || (projectKey !== null && !hasCurrentDetail && currentError === null)) {
+
+  const pageTitle = detailQuery.data?.project.name ?? projectId?.slice(0, 8) ?? "";
+
+  if (!projectId) {
+    return (
+      <div className="space-y-4">
+        <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
+        <ErrorBanner message="Missing project id." />
+      </div>
+    );
+  }
+
+  if (detailQuery.isPending || runsQuery.isPending) {
     return (
       <>
         <h1 className="sr-only">{pageTitle}</h1>
@@ -214,28 +112,34 @@ export const ProjectDetailPage = () => {
       </>
     );
   }
-  if (currentError && !hasCurrentDetail) {
+
+  if (detailQuery.isError && !detailQuery.data) {
     return (
       <div className="space-y-4">
         <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: "Error" }]} />
-        <ErrorBanner message={currentError} />
+        <ErrorBanner message={formatApiError(detailQuery.error)} />
       </div>
     );
   }
-  if (!hasCurrentDetail || !detail) return null;
-  const { project } = detail;
+
+  if (!detailQuery.data) return null;
+
+  const { project } = detailQuery.data;
+  const runs = runsQuery.data?.pages.flatMap((page) => page.runs) ?? [];
+  const runsError = runsQuery.isError ? formatApiError(runsQuery.error) : null;
+  const loadingMore = runsQuery.isFetchingNextPage;
+  const triggering = triggerRunMutation.isPending;
+
   return (
     <div className="animate-slide-up space-y-5">
       <Breadcrumbs items={[{ label: "Projects", href: "/app/projects" }, { label: project.name }]} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(230px,400px)_minmax(0,1fr)]">
-        {/* Left column */}
         <div className="space-y-4">
           <ProjectMetadataCard project={project} settingsHref={`/app/projects/${projectId}/settings`} />
-          <WebhookCard projectId={projectId!} project={project} />
+          <WebhookCard projectId={projectId} project={project} />
         </div>
 
-        {/* Right column */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -249,9 +153,7 @@ export const ProjectDetailPage = () => {
                 disabled={triggering}
                 loading={triggering}
                 icon={!triggering ? <Play className="h-3.5 w-3.5" /> : undefined}
-                onClick={() => {
-                  void handleTriggerRun();
-                }}
+                onClick={() => triggerRunMutation.mutate()}
               >
                 Trigger Run
               </Button>
@@ -261,15 +163,17 @@ export const ProjectDetailPage = () => {
                 icon={<RefreshCw className="h-3.5 w-3.5" />}
                 aria-label="Refresh"
                 onClick={() => {
-                  void loadProject();
+                  void handleRefresh();
                 }}
               />
             </div>
           </div>
 
-          {currentError ? <ErrorBanner message={currentError} /> : null}
+          {detailQuery.isError ? <ErrorBanner message={formatApiError(detailQuery.error)} /> : null}
 
-          {runs.length === 0 ? (
+          {runsError && runs.length === 0 ? <ErrorBanner message={runsError} /> : null}
+
+          {runs.length === 0 && !runsError ? (
             <EmptyState
               icon={<Play className="h-6 w-6" />}
               title="No runs yet"
@@ -283,29 +187,28 @@ export const ProjectDetailPage = () => {
             </div>
           )}
 
-          {nextCursor ? (
+          {runsQuery.hasNextPage ? (
             <Button
               variant="secondary"
               className="w-full"
               disabled={loadingMore}
               loading={loadingMore}
               onClick={() => {
-                void handleLoadMore();
+                void runsQuery.fetchNextPage();
               }}
             >
               Load more
             </Button>
           ) : null}
 
-          {loadMoreError ? (
+          {runsError && runs.length > 0 ? (
             <div className="space-y-2">
-              <ErrorBanner message={loadMoreError} />
+              <ErrorBanner message={runsError} />
               <Button
                 variant="secondary"
                 className="w-full"
                 onClick={() => {
-                  setLoadMoreError(null);
-                  void handleLoadMore();
+                  void runsQuery.fetchNextPage();
                 }}
               >
                 Retry

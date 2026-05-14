@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { ErrorBanner } from "@/client/components/ui";
 
 const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -85,8 +85,9 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const previousResetKeyRef = useRef(resetKey);
-  const onTokenChangeRef = useRef(onTokenChange);
-  onTokenChangeRef.current = onTokenChange;
+  const notifyTokenChange = useEffectEvent((token: string | null) => {
+    onTokenChange(token);
+  });
 
   const [turnstile, setTurnstile] = useState<TurnstileApi | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -94,8 +95,7 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
   useEffect(() => {
     let active = true;
 
-    setMessage(null);
-    onTokenChangeRef.current(null);
+    notifyTokenChange(null);
 
     void loadTurnstileScript()
       .then((nextTurnstile) => {
@@ -110,7 +110,7 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
           return;
         }
 
-        onTokenChangeRef.current(null);
+        notifyTokenChange(null);
         setMessage(error instanceof Error ? error.message : TURNSTILE_UNAVAILABLE_MESSAGE);
       });
 
@@ -133,21 +133,21 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
         size: "flexible",
         callback: (token) => {
           setMessage(null);
-          onTokenChangeRef.current(token);
+          notifyTokenChange(token);
         },
         "error-callback": () => {
           // Turnstile retries transient client-side failures automatically.
           setMessage(null);
-          onTokenChangeRef.current(null);
+          notifyTokenChange(null);
         },
         "expired-callback": () => {
           setMessage(null);
-          onTokenChangeRef.current(null);
+          notifyTokenChange(null);
         },
       });
     } catch {
-      setMessage(TURNSTILE_UNAVAILABLE_MESSAGE);
-      onTokenChangeRef.current(null);
+      notifyTokenChange(null);
+      queueMicrotask(() => setMessage(TURNSTILE_UNAVAILABLE_MESSAGE));
     }
 
     return () => {
@@ -170,7 +170,7 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
 
     previousResetKeyRef.current = resetKey;
     setMessage(null);
-    onTokenChangeRef.current(null);
+    notifyTokenChange(null);
     turnstile.reset(widgetIdRef.current);
   }, [resetKey, turnstile]);
 

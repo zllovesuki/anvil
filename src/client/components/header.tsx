@@ -5,7 +5,7 @@ import { useAuth } from "@/client/auth";
 import { ModeToggle } from "@/client/components/mode-toggle";
 
 import { UserMenu } from "@/client/components/user-menu";
-import type { AuthMode } from "../lib";
+import type { AuthMode } from "@/client/lib/storage";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
   [

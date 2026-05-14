@@ -26,7 +26,7 @@ const parseErrorResponse = async (response: Response): Promise<ApiError> => {
   try {
     payload = (await response.json()) as ErrorEnvelope;
   } catch {
-    payload = null;
+    // Keep the HTTP status fallback when the error body is empty or malformed.
   }
 
   return new ApiError(

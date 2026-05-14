@@ -1,10 +1,8 @@
 import type { RunStep } from "@/contracts";
 import { StatusPill } from "@/client/components/status-pill";
-import { formatDuration, getStatusMeta } from "@/client/lib";
+import { formatDuration } from "@/client/lib";
 
 const StepRow = ({ step, isActive }: { step: RunStep; isActive: boolean }) => {
-  const meta = getStatusMeta(step.status);
-
   return (
     <div
       className={[

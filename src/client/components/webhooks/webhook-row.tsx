@@ -7,7 +7,6 @@ import { webhookProviderCatalog } from "@/lib/webhooks";
 
 interface WebhookRowProps {
   webhook: WebhookSummary;
-  webhookUrl: string;
   onToggle: () => void;
   onViewDeliveries: () => void;
   onRotateSecret: () => void;
@@ -17,7 +16,6 @@ interface WebhookRowProps {
 
 export const WebhookRow = ({
   webhook,
-  webhookUrl,
   onToggle,
   onViewDeliveries,
   onRotateSecret,

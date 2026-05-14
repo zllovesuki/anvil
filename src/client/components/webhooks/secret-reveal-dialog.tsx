@@ -25,8 +25,6 @@ export const SecretRevealDialog = ({ open, onClose, secret, provider, webhookUrl
       return;
     }
 
-    setSecondsRemaining(5);
-
     const interval = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {

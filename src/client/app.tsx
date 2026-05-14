@@ -1,18 +1,37 @@
+import { lazy } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/client/auth";
-import { AppShell, LoadingPanel } from "@/client/components";
-import {
-  AcceptInvitePage,
-  CreateProjectPage,
-  LandingPage,
-  LoginPage,
-  NotFoundPage,
-  ProfilePage,
-  ProjectDetailPage,
-  ProjectSettingsPage,
-  ProjectsPage,
-  RunDetailPage,
-} from "@/client/pages";
+import { AppShell } from "@/client/components/app-shell";
+import { LoadingPanel } from "@/client/components/loading-panel";
+
+const AcceptInvitePage = lazy(() =>
+  import("@/client/pages/accept-invite-page").then(({ AcceptInvitePage }) => ({ default: AcceptInvitePage })),
+);
+const CreateProjectPage = lazy(() =>
+  import("@/client/pages/create-project-page").then(({ CreateProjectPage }) => ({ default: CreateProjectPage })),
+);
+const LandingPage = lazy(() =>
+  import("@/client/pages/landing-page").then(({ LandingPage }) => ({ default: LandingPage })),
+);
+const LoginPage = lazy(() => import("@/client/pages/login-page").then(({ LoginPage }) => ({ default: LoginPage })));
+const NotFoundPage = lazy(() =>
+  import("@/client/pages/not-found-page").then(({ NotFoundPage }) => ({ default: NotFoundPage })),
+);
+const ProfilePage = lazy(() =>
+  import("@/client/pages/profile-page").then(({ ProfilePage }) => ({ default: ProfilePage })),
+);
+const ProjectDetailPage = lazy(() =>
+  import("@/client/pages/project-detail-page").then(({ ProjectDetailPage }) => ({ default: ProjectDetailPage })),
+);
+const ProjectSettingsPage = lazy(() =>
+  import("@/client/pages/project-settings-page").then(({ ProjectSettingsPage }) => ({ default: ProjectSettingsPage })),
+);
+const ProjectsPage = lazy(() =>
+  import("@/client/pages/projects-page").then(({ ProjectsPage }) => ({ default: ProjectsPage })),
+);
+const RunDetailPage = lazy(() =>
+  import("@/client/pages/run-detail-page").then(({ RunDetailPage }) => ({ default: RunDetailPage })),
+);
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isInitializing } = useAuth();

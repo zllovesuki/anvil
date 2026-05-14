@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 interface UsePollingOptions {
   enabled: boolean;
@@ -7,14 +7,13 @@ interface UsePollingOptions {
 }
 
 export const usePolling = ({ enabled, intervalMs, callback }: UsePollingOptions): void => {
-  const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+  const runCallback = useEffectEvent(callback);
 
   useEffect(() => {
     if (!enabled) return;
 
     const interval = setInterval(() => {
-      void callbackRef.current();
+      void runCallback();
     }, intervalMs);
 
     return () => clearInterval(interval);

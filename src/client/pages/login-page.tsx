@@ -1,94 +1,35 @@
 import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/client/auth";
-import { TurnstileWidget } from "@/client/components";
+import { TurnstileChallenge } from "@/client/components";
 import { Button, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
-import { formatApiError, getApiClient } from "@/client/lib";
+import { type AuthMode, formatApiError } from "@/client/lib";
 import { MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD } from "@/client/lib/mock";
 
 const MOCK_TURNSTILE_TOKEN = "mock-turnstile-token";
-const TURNSTILE_UNAVAILABLE_MESSAGE = "Human verification is temporarily unavailable.";
 
-export const LoginPage = () => {
+interface LoginFormProps {
+  canSelectMode: boolean;
+  isInitializing: boolean;
+  mode: AuthMode;
+  signIn: ReturnType<typeof useAuth>["signIn"];
+}
+
+const LoginForm = ({ canSelectMode, isInitializing, mode, signIn }: LoginFormProps) => {
   const navigate = useNavigate();
-  const { canSelectMode, isAuthenticated, isInitializing, mode, signIn } = useAuth();
   const [email, setEmail] = useState(() => (mode === "mock" ? MOCK_DEMO_EMAIL : ""));
   const [password, setPassword] = useState(() => (mode === "mock" ? MOCK_DEMO_PASSWORD : ""));
-  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(() =>
-    mode === "mock" ? MOCK_TURNSTILE_TOKEN : null,
-  );
+  const [turnstileState, setTurnstileState] = useState<{ mode: AuthMode; token: string | null }>({
+    mode,
+    token: null,
+  });
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const [turnstileConfigError, setTurnstileConfigError] = useState<string | null>(null);
-  const [loadingTurnstileConfig, setLoadingTurnstileConfig] = useState(mode === "live");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (mode === "mock") {
-      setEmail(MOCK_DEMO_EMAIL);
-      setPassword(MOCK_DEMO_PASSWORD);
-      return;
-    }
-
-    setEmail("");
-    setPassword("");
-  }, [mode]);
-
-  useEffect(() => {
-    if (mode !== "live") {
-      setTurnstileSiteKey(null);
-      setTurnstileToken(MOCK_TURNSTILE_TOKEN);
-      setTurnstileConfigError(null);
-      setLoadingTurnstileConfig(false);
-      return;
-    }
-
-    let canceled = false;
-
-    setTurnstileSiteKey(null);
-    setTurnstileToken(null);
-    setTurnstileConfigError(null);
-    setLoadingTurnstileConfig(true);
-
-    void getApiClient(mode)
-      .getAppConfig()
-      .then((config) => {
-        if (canceled) {
-          return;
-        }
-
-        if (!config.turnstileSiteKey) {
-          setTurnstileConfigError(TURNSTILE_UNAVAILABLE_MESSAGE);
-          return;
-        }
-
-        setTurnstileSiteKey(config.turnstileSiteKey);
-      })
-      .catch((reason: unknown) => {
-        if (canceled) {
-          return;
-        }
-
-        setTurnstileConfigError(formatApiError(reason));
-      })
-      .finally(() => {
-        if (!canceled) {
-          setLoadingTurnstileConfig(false);
-        }
-      });
-
-    return () => {
-      canceled = true;
-    };
-  }, [mode]);
-
-  if (!isInitializing && isAuthenticated) {
-    return <Navigate to="/app/projects" replace />;
-  }
-
-  const isTurnstileBlocked = mode === "live" && (loadingTurnstileConfig || !turnstileSiteKey || !turnstileToken);
+  const turnstileToken = turnstileState.mode === mode ? turnstileState.token : null;
+  const isTurnstileBlocked = mode === "live" && !turnstileToken;
 
   return (
     <div className="mx-auto max-w-3xl animate-slide-up space-y-6">
@@ -125,7 +66,7 @@ export const LoginPage = () => {
               .catch((reason: unknown) => {
                 setError(formatApiError(reason));
                 if (mode === "live") {
-                  setTurnstileToken(null);
+                  setTurnstileState({ mode, token: null });
                   setTurnstileResetKey((current) => current + 1);
                 }
               })
@@ -155,16 +96,11 @@ export const LoginPage = () => {
           />
 
           {mode === "live" ? (
-            loadingTurnstileConfig ? null : turnstileSiteKey ? (
-              <TurnstileWidget
-                action="login"
-                onTokenChange={setTurnstileToken}
-                resetKey={turnstileResetKey}
-                siteKey={turnstileSiteKey}
-              />
-            ) : (
-              <ErrorBanner message={turnstileConfigError ?? TURNSTILE_UNAVAILABLE_MESSAGE} />
-            )
+            <TurnstileChallenge
+              action="login"
+              onTokenChange={(token) => setTurnstileState({ mode, token })}
+              resetKey={turnstileResetKey}
+            />
           ) : null}
 
           {error ? <ErrorBanner message={error} /> : null}
@@ -190,5 +126,17 @@ export const LoginPage = () => {
         </form>
       </Card>
     </div>
+  );
+};
+
+export const LoginPage = () => {
+  const { canSelectMode, isAuthenticated, isInitializing, mode, signIn } = useAuth();
+
+  if (!isInitializing && isAuthenticated) {
+    return <Navigate to="/app/projects" replace />;
+  }
+
+  return (
+    <LoginForm key={mode} canSelectMode={canSelectMode} isInitializing={isInitializing} mode={mode} signIn={signIn} />
   );
 };

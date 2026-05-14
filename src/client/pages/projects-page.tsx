@@ -1,12 +1,17 @@
 import type { ProjectSummary, RunStatus } from "@/contracts";
+import { useQuery } from "@tanstack/react-query";
 import { FolderGit2, FolderPlus, GitBranch, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { StatusPill } from "@/client/components";
 import { Badge, Button, ButtonLink, EmptyState, ErrorBanner, PageHeader, Skeleton } from "@/client/components/ui";
-import { formatApiError, formatProjectUpdatedLabel, getApiClient, inferRepositoryProvider } from "@/client/lib";
-import { useToast } from "@/client/toast";
+import {
+  formatApiError,
+  formatProjectUpdatedLabel,
+  getApiClient,
+  inferRepositoryProvider,
+  queryKeys,
+} from "@/client/lib";
 
 const countByStatus = (projects: ProjectSummary[], target: RunStatus): number =>
   projects.filter((project) => project.lastRunStatus === target).length;
@@ -55,47 +60,15 @@ const ProjectCardSkeleton = () => (
 
 export const ProjectsPage = () => {
   const { mode, user } = useAuth();
-  const { pushToast } = useToast();
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadProjects = async (signal?: { canceled: boolean }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await getApiClient(mode).getProjects();
-      if (signal?.canceled) return;
-      setProjects(response.projects);
-    } catch (reason) {
-      if (signal?.canceled) return;
-      const message = formatApiError(reason);
-      setError(message);
-      pushToast({
-        tone: "error",
-        title: "Projects failed to load",
-        message,
-      });
-    } finally {
-      if (!signal?.canceled) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const signal = { canceled: false };
-    void loadProjects(signal);
-
-    return () => {
-      signal.canceled = true;
-    };
-  }, [mode, user?.id]);
+  const userId = user?.id ?? "";
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.projects(mode, userId),
+    queryFn: () => getApiClient(mode).getProjects(),
+    enabled: userId.length > 0,
+  });
+  const projects = projectsQuery.data?.projects ?? [];
+  const loading = projectsQuery.isPending;
+  const error = projectsQuery.isError ? formatApiError(projectsQuery.error) : null;
 
   const activeCount =
     countByStatus(projects, "queued") +
@@ -127,7 +100,7 @@ export const ProjectsPage = () => {
               icon={<RefreshCw className="h-3.5 w-3.5" />}
               aria-label="Refresh"
               onClick={() => {
-                void loadProjects();
+                void projectsQuery.refetch();
               }}
             />
           </>

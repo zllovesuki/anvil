@@ -1,9 +1,10 @@
 import type { WebhookProvider, WebhookSummary } from "@/contracts";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Webhook } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useAuth } from "@/client/auth";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBanner } from "@/client/components/ui";
-import { formatApiError, getApiClient } from "@/client/lib";
+import { formatApiError, getApiClient, queryKeys } from "@/client/lib";
 import { useToast } from "@/client/toast";
 import { AddWebhookDialog } from "@/client/components/webhooks/add-webhook-dialog";
 import { DeliveryListDialog } from "@/client/components/webhooks/delivery-list-dialog";
@@ -21,10 +22,8 @@ interface WebhookCardProps {
 export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
   const { mode } = useAuth();
   const { pushToast } = useToast();
+  const queryClient = useQueryClient();
 
-  const [webhooks, setWebhooks] = useState<WebhookSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [togglingProvider, setTogglingProvider] = useState<string | null>(null);
 
   // Dialog state
@@ -38,33 +37,17 @@ export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
   const [deliveriesWebhook, setDeliveriesWebhook] = useState<WebhookSummary | null>(null);
   const [deleteWebhook, setDeleteWebhook] = useState<WebhookSummary | null>(null);
 
-  const requestIdRef = useRef(0);
-
   const buildWebhookUrl = (provider: string) =>
     `${window.location.origin}/api/public/hooks/${provider}/${project.ownerSlug}/${project.projectSlug}`;
 
+  const webhooksQuery = useQuery({
+    queryKey: queryKeys.projectWebhooks(mode, projectId),
+    queryFn: () => getApiClient(mode).getProjectWebhooks(projectId),
+  });
+
   const refreshWebhooks = useCallback(async () => {
-    const requestId = ++requestIdRef.current;
-
-    try {
-      const response = await getApiClient(mode).getProjectWebhooks(projectId);
-      if (requestId !== requestIdRef.current) return;
-      setWebhooks(response.webhooks);
-      setError(null);
-    } catch (reason) {
-      if (requestId !== requestIdRef.current) return;
-      setError(formatApiError(reason));
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [mode, projectId]);
-
-  useEffect(() => {
-    setLoading(true);
-    void refreshWebhooks();
-  }, [refreshWebhooks]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.projectWebhooks(mode, projectId) });
+  }, [mode, projectId, queryClient]);
 
   const handleToggle = async (webhook: WebhookSummary) => {
     setTogglingProvider(webhook.provider);
@@ -108,7 +91,10 @@ export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
   };
 
   const recommended = getRecommendedProvider(project.repoUrl);
+  const webhooks = webhooksQuery.data?.webhooks ?? [];
   const configuredProviders = webhooks.map((w) => w.provider);
+  const error = webhooksQuery.isError ? formatApiError(webhooksQuery.error) : null;
+  const loading = webhooksQuery.isPending;
 
   return (
     <>
@@ -143,7 +129,6 @@ export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
               <WebhookRow
                 key={webhook.id}
                 webhook={webhook}
-                webhookUrl={buildWebhookUrl(webhook.provider)}
                 toggling={togglingProvider === webhook.provider}
                 onToggle={() => void handleToggle(webhook)}
                 onViewDeliveries={() => setDeliveriesWebhook(webhook)}
