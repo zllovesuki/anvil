@@ -1,77 +1,17 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { ErrorBanner } from "@/client/components/ui";
 
-const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const LOAD_TIMEOUT_MS = 10_000;
 const TURNSTILE_UNAVAILABLE_MESSAGE = "Human verification is temporarily unavailable.";
 
-interface TurnstileRenderOptions {
-  action: string;
-  appearance: "always" | "execute" | "interaction-only";
-  callback: (token: string) => void;
-  "error-callback": () => void;
-  "expired-callback": () => void;
-  sitekey: string;
-  size: "normal" | "compact" | "flexible";
-  theme: "auto" | "light" | "dark";
-}
-
-interface TurnstileApi {
-  remove(widgetId: string): void;
-  render(container: HTMLElement, options: TurnstileRenderOptions): string;
-  reset(widgetId: string): void;
-}
-
-declare global {
-  interface Window {
-    turnstile?: TurnstileApi;
-  }
-}
-
-let turnstileScriptPromise: Promise<TurnstileApi> | null = null;
-
-const loadTurnstileScript = (): Promise<TurnstileApi> => {
-  if (window.turnstile) {
-    return Promise.resolve(window.turnstile);
-  }
-
-  if (turnstileScriptPromise) {
-    return turnstileScriptPromise;
-  }
-
-  turnstileScriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT_SRC}"]`);
-
-    const handleLoad = () => {
-      if (window.turnstile) {
-        resolve(window.turnstile);
-        return;
-      }
-
-      turnstileScriptPromise = null;
-      reject(new Error(TURNSTILE_UNAVAILABLE_MESSAGE));
-    };
-
-    const handleError = () => {
-      turnstileScriptPromise = null;
-      reject(new Error(TURNSTILE_UNAVAILABLE_MESSAGE));
-    };
-
-    if (existingScript) {
-      existingScript.addEventListener("load", handleLoad, { once: true });
-      existingScript.addEventListener("error", handleError, { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = TURNSTILE_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    script.addEventListener("load", handleLoad, { once: true });
-    script.addEventListener("error", handleError, { once: true });
-    document.head.appendChild(script);
-  });
-
-  return turnstileScriptPromise;
+const TURNSTILE_OPTIONS = {
+  appearance: "interaction-only" as const,
+  refreshExpired: "auto" as const,
+  refreshTimeout: "auto" as const,
+  responseField: false,
+  size: "flexible" as const,
+  theme: "dark" as const,
 };
 
 interface TurnstileWidgetProps {
@@ -82,88 +22,54 @@ interface TurnstileWidgetProps {
 }
 
 export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: TurnstileWidgetProps) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const previousResetKeyRef = useRef(resetKey);
+  const [loaded, setLoaded] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
   const notifyTokenChange = useEffectEvent((token: string | null) => {
     onTokenChange(token);
   });
 
-  const [turnstile, setTurnstile] = useState<TurnstileApi | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const handleLoadTimeout = useEffectEvent(() => {
+    onTokenChange(null);
+    setMessage(TURNSTILE_UNAVAILABLE_MESSAGE);
+  });
 
-  useEffect(() => {
-    let active = true;
+  const handleSuccess = useCallback(
+    (token: string) => {
+      setMessage(null);
+      onTokenChange(token);
+    },
+    [onTokenChange],
+  );
 
-    notifyTokenChange(null);
+  const handleTokenCleared = useCallback(() => {
+    setMessage(null);
+    onTokenChange(null);
+  }, [onTokenChange]);
 
-    void loadTurnstileScript()
-      .then((nextTurnstile) => {
-        if (!active) {
-          return;
-        }
+  const handleUnavailable = useCallback(() => {
+    setMessage(TURNSTILE_UNAVAILABLE_MESSAGE);
+    onTokenChange(null);
+  }, [onTokenChange]);
 
-        setTurnstile(nextTurnstile);
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        notifyTokenChange(null);
-        setMessage(error instanceof Error ? error.message : TURNSTILE_UNAVAILABLE_MESSAGE);
-      });
-
-    return () => {
-      active = false;
-    };
+  const handleWidgetLoad = useCallback(() => {
+    setLoaded(true);
+    setMessage(null);
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current || !turnstile || widgetIdRef.current) {
-      return;
-    }
+    if (loaded) return;
 
-    try {
-      widgetIdRef.current = turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        action,
-        appearance: "interaction-only",
-        theme: "dark",
-        size: "flexible",
-        callback: (token) => {
-          setMessage(null);
-          notifyTokenChange(token);
-        },
-        "error-callback": () => {
-          // Turnstile retries transient client-side failures automatically.
-          setMessage(null);
-          notifyTokenChange(null);
-        },
-        "expired-callback": () => {
-          setMessage(null);
-          notifyTokenChange(null);
-        },
-      });
-    } catch {
-      notifyTokenChange(null);
-      queueMicrotask(() => setMessage(TURNSTILE_UNAVAILABLE_MESSAGE));
-    }
+    const timeout = window.setTimeout(() => {
+      handleLoadTimeout();
+    }, LOAD_TIMEOUT_MS);
 
-    return () => {
-      if (widgetIdRef.current) {
-        turnstile.remove(widgetIdRef.current);
-        widgetIdRef.current = null;
-      }
-    };
-  }, [action, siteKey, turnstile]);
+    return () => window.clearTimeout(timeout);
+  }, [loaded]);
 
   useEffect(() => {
-    if (!turnstile || !widgetIdRef.current) {
-      previousResetKeyRef.current = resetKey;
-      return;
-    }
-
     if (resetKey === previousResetKeyRef.current) {
       return;
     }
@@ -171,12 +77,23 @@ export const TurnstileWidget = ({ action, onTokenChange, resetKey, siteKey }: Tu
     previousResetKeyRef.current = resetKey;
     setMessage(null);
     notifyTokenChange(null);
-    turnstile.reset(widgetIdRef.current);
-  }, [resetKey, turnstile]);
+    turnstileRef.current?.reset();
+  }, [resetKey]);
 
   return (
     <div className="space-y-2">
-      <div ref={containerRef} />
+      <Turnstile
+        id={`turnstile-${action}`}
+        ref={turnstileRef}
+        siteKey={siteKey}
+        options={{ ...TURNSTILE_OPTIONS, action }}
+        onWidgetLoad={handleWidgetLoad}
+        onSuccess={handleSuccess}
+        onExpire={handleTokenCleared}
+        onError={handleTokenCleared}
+        onTimeout={handleTokenCleared}
+        onUnsupported={handleUnavailable}
+      />
       {message ? <ErrorBanner message={message} className="p-3" /> : null}
     </div>
   );
