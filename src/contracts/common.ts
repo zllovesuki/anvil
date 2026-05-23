@@ -1,6 +1,6 @@
 import { eg, type TypeFromCodec } from "@cloudflare/util-en-garde";
 
-const DURABLE_ENTITY_ID_PATTERN = /^(usr|prj|run|inv|whk)_[0-9A-Za-z]{22}$/u;
+const DURABLE_ENTITY_ID_PATTERN = /^(usr|prj|run|whk)_[0-9A-Za-z]{22}$/u;
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,}$/u;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const SLUG_PATTERN = /^[A-Za-z0-9_-]+$/u;
@@ -28,9 +28,6 @@ export type ProjectId = TypeFromCodec<typeof ProjectId>;
 
 export const RunId = brandedString("RunId", (value) => /^run_[0-9A-Za-z]{22}$/u.test(value));
 export type RunId = TypeFromCodec<typeof RunId>;
-
-export const InviteId = brandedString("InviteId", (value) => /^inv_[0-9A-Za-z]{22}$/u.test(value));
-export type InviteId = TypeFromCodec<typeof InviteId>;
 
 export const WebhookId = brandedString("WebhookId", (value) => /^whk_[0-9A-Za-z]{22}$/u.test(value));
 export type WebhookId = TypeFromCodec<typeof WebhookId>;

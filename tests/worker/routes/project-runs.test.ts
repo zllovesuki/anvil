@@ -24,11 +24,10 @@ describe("worker routes", () => {
   registerWorkerRuntimeHooks();
 
   describe("project and run flows", () => {
-    it("supports login, project creation, run trigger, cancel, and log ticket flows", async () => {
+    it("supports session auth, project creation, run trigger, cancel, and log ticket flows", async () => {
       const user = await seedUser({
         email: "routes@example.com",
         slug: "routes-user",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);
@@ -140,7 +139,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-queue-full@example.com",
         slug: "routes-queue-full",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);
@@ -192,7 +190,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-dispatch-mode@example.com",
         slug: "routes-dispatch-mode",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);

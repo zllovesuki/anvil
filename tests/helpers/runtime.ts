@@ -63,7 +63,6 @@ export interface SeededUser {
   slug: OwnerSlug;
   email: string;
   displayName: string;
-  password: string;
 }
 
 export interface SeededProject {
@@ -82,7 +81,6 @@ interface SeedUserOverrides {
   slug?: string;
   email?: string;
   displayName?: string;
-  password?: string;
 }
 
 interface SeedProjectOverrides {
@@ -120,13 +118,11 @@ export const applyAppMigrations = async (): Promise<void> => {
 export const seedUser = async (overrides: SeedUserOverrides = {}): Promise<SeededUser> => {
   const db = getDb();
   const now = Date.now();
-  const password = overrides.password ?? "correct horse battery staple";
   const user = {
     id: overrides.id ? UserId.assertDecode(overrides.id) : UserId.assertDecode(generateDurableEntityId("usr", now)),
     slug: overrides.slug ? OwnerSlug.assertDecode(overrides.slug) : OwnerSlug.assertDecode("tester"),
     email: overrides.email ?? "tester@example.com",
     displayName: overrides.displayName ?? "Test Operator",
-    password,
   };
 
   await db.insert(d1Schema.users).values({

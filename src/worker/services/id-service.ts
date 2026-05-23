@@ -4,7 +4,7 @@ const BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
 const BASE62_WIDTH = 22;
 const BASE62_LOOKUP = new Map(BASE62_ALPHABET.split("").map((character, index) => [character, BigInt(index)]));
 
-export type DurableEntityPrefix = "usr" | "prj" | "run" | "inv" | "whk";
+export type DurableEntityPrefix = "usr" | "prj" | "run" | "whk";
 
 const bytesToBigInt = (bytes: Uint8Array): bigint => {
   let value = 0n;

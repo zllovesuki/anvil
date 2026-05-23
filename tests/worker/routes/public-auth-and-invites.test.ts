@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { authHeaders, createAuthenticatedSession, fetchJson, seedUser } from "../../helpers/runtime";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 
-describe("worker public auth and invite routes", () => {
+describe("worker public auth routes", () => {
   registerWorkerRuntimeHooks();
 
   it("removes password login, invite acceptance, and private invite creation routes", async () => {

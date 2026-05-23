@@ -1,5 +1,5 @@
 import { HttpError } from "@/worker/http";
-import { BranchName, MIN_PASSWORD_LENGTH, type BranchName as BranchNameType } from "@/contracts";
+import { BranchName, type BranchName as BranchNameType } from "@/contracts";
 import { expectTrusted } from "@/worker/contracts";
 
 const SLUG_PATTERN = /^[A-Za-z0-9_-]+$/u;
@@ -30,12 +30,6 @@ export const normalizeEmailAddress = (value: string): string =>
   assertNonEmptyTrimmedString(value, "email").toLowerCase();
 
 export const normalizeDisplayName = (value: string): string => assertNonEmptyTrimmedString(value, "displayName");
-
-export const assertValidPassword = (value: string): void => {
-  if (value.length < MIN_PASSWORD_LENGTH) {
-    throw new HttpError(400, "invalid_password", `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-  }
-};
 
 const isIpLiteralHost = (hostname: string): boolean => IPV4_HOST_PATTERN.test(hostname) || hostname.includes(":");
 

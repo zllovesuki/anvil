@@ -29,7 +29,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-missing-origin@example.com",
         slug: "routes-missing-origin",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);
@@ -62,7 +61,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-invalid@example.com",
         slug: "routes-invalid-user",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);
@@ -102,7 +100,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-invalid-project-id@example.com",
         slug: "routes-invalid-project-id",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);

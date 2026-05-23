@@ -19,7 +19,6 @@
     "db:generate": "npm run db:generate:d1 && npm run db:generate:durable",
     "db:migrate:d1": "wrangler d1 migrations apply anvil-db --remote",
     "db:migrate:d1:local": "wrangler d1 migrations apply anvil-db --local",
-    "db:seed-initial-user": "node --import tsx scripts/seed-bootstrap-invite.ts",
     "test:integration:queue": "vitest run -c vitest.integration.config.ts tests/integration/queue-runner-happy-path.test.ts",
     "test:integration:workflows": "vitest run -c vitest.integration.config.ts tests/integration/workflows-runner-happy-path.test.ts",
     "test:e2e": "npx playwright test -c tests/e2e/playwright.config.ts",

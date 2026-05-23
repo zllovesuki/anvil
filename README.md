@@ -57,11 +57,11 @@ Drop this in your repo root, point anvil at it, and you're running CI. ⚡
 
 🧭 **Selectable dispatch mode** — keep the existing Queue-backed path or use Cloudflare Workflows for durable orchestration
 
-🔒 **Invite-only access** — no open registration. Add teammates via time-bounded invite links, with Turnstile protecting public auth
+🔒 **tessera OIDC access** — no anvil passwords or invites. Verified tessera identities auto-provision or bind to existing users by email
 
 🌐 **Any HTTPS Git repo** — GitHub, GitLab, Gitea, or any repo reachable over HTTPS with optional token auth
 
-🛡️ **Security baked in** — encrypted credentials at rest, automatic secret redaction in logs, strict CSP, PBKDF2 password hashing, and human verification for login and invite acceptance
+🛡️ **Security baked in** — encrypted credentials at rest, automatic secret redaction in logs, strict CSP, same-origin mutation guards, and HttpOnly cookie sessions
 
 ---
 
@@ -70,7 +70,7 @@ Drop this in your repo root, point anvil at it, and you're running CI. ⚡
 - **Workers** — stateless HTTP frontdoor: routing, auth, dispatch trigger
 - **ProjectDO** — per-project state machine: active run lock, pending queue, dispatch mode, webhook config
 - **RunDO** — per-run state: steps, rolling logs, WebSocket fanout to browsers
-- **D1** — durable relational index: users, projects, run history, invites
+- **D1** — durable relational index: users, tessera identities, projects, run history
 - **KV** — ephemeral session storage with TTL
 - **Dispatch** — Queue-backed or Workflow-backed run orchestration, both preserving FIFO at the project level
 - **Sandbox** — isolated container per run via `@cloudflare/sandbox`
@@ -98,18 +98,13 @@ git clone <repo-url>
 cd anvil
 npm install
 
-cp .dev.vars.example .dev.vars       # local encryption and Turnstile test keys
+cp .dev.vars.example .dev.vars       # local encryption and tessera OIDC settings
 npm run db:migrate:d1:local          # set up local D1
-npm run db:seed-initial-user -- --local  # create bootstrap invite
 
 npm run dev                          # 🚀 go
 ```
 
-Open the URL from the terminal, accept the invite, and you're in. 🎉
-
-`.dev.vars.example` includes Cloudflare Turnstile dummy keys for local development. Replace them with real Turnstile keys before deploying live auth.
-
-> 🧪 **Frontend-only?** On localhost, the frontend starts in **mock mode** — a localStorage-backed API that simulates the full backend. No Workers, no D1, no migrations needed. Great for UI work and especially useful for agentic workflows where an AI agent browses the local dev server to verify frontend changes.
+Point the tessera OIDC values in `.dev.vars` at a reachable tessera issuer, then open the URL from the terminal and sign in with tessera. First sign-in creates or binds the anvil user from the verified OIDC email.
 
 ---
 
@@ -120,7 +115,7 @@ src/
   client/           🖥️  React frontend (pages, components, hooks)
   worker/           ⚙️  Cloudflare Workers backend
     api/                 Route handlers (public + private)
-    auth/                Sessions and password handling
+    auth/                OIDC, cookie sessions, and auth middleware
     db/                  D1 and Durable Object schemas (Drizzle)
     dispatch/            Queue + Workflow dispatch and shared execution
     durable/             ProjectDO and RunDO
@@ -164,7 +159,7 @@ npx wrangler login
 npm run deploy
 ```
 
-`npm run deploy` applies remote D1 migrations first, then builds and deploys the Worker. Production deployments need fresh encryption keys and real Cloudflare Turnstile keys configured as Worker secrets. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
+`npm run deploy` applies remote D1 migrations first, then builds and deploys the Worker. Production deployments need fresh encryption keys plus tessera OIDC client credentials configured as Worker secrets. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
 
 ---
 
@@ -174,11 +169,10 @@ anvil takes security seriously even at v1:
 
 - 🔐 AES-GCM encryption at rest for repo tokens and webhook secrets
 - 🙈 Automatic secret redaction in all run logs
-- 🛑 Strict CSP — no inline scripts, no `eval`, with Turnstile challenge origins explicitly allowlisted
-- 🔑 PBKDF2 password hashing (SHA-256, 100k iterations, per-user salt)
-- 👥 Invite-only registration — no open signup surface
-- 🧍 Turnstile validation on live login and invite acceptance
-- 🚪 KV sessions with TTL — Bearer auth, not cookies
+- 🛑 Strict CSP — no inline scripts and no `eval`
+- 🔑 tessera OIDC sign-in with verified-email identity binding
+- 🧭 Same-origin guard on cookie-bound mutations
+- 🚪 KV sessions with TTL, carried in a Secure HttpOnly `__Host-anvil_session` cookie
 
 For rate limiting and WAF configuration, see [waf.md](waf.md). 🧱
 

@@ -52,7 +52,6 @@ export const createOwnedProjectContext = async (options?: {
   user?: {
     email?: string;
     slug?: string;
-    password?: string;
   };
   project?: {
     projectSlug?: string;
@@ -66,7 +65,6 @@ export const createOwnedProjectContext = async (options?: {
   const user = await seedUser({
     email: options?.user?.email,
     slug: options?.user?.slug,
-    password: options?.user?.password,
   });
   const project = await seedProject(user, {
     projectSlug: options?.project?.projectSlug,

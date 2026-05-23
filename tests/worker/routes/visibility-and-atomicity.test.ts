@@ -14,7 +14,6 @@ describe("worker routes", () => {
       const user = await seedUser({
         email: "routes-webhook-version-touch@example.com",
         slug: "routes-webhook-version-touch",
-        password: "swordfish",
       });
 
       const { sessionId } = await mintCookieAuth(user.id);
@@ -94,12 +93,10 @@ describe("worker routes", () => {
       const owner = await seedUser({
         email: "routes-owner@example.com",
         slug: "routes-owner",
-        password: "swordfish",
       });
       const otherUser = await seedUser({
         email: "routes-other@example.com",
         slug: "routes-other",
-        password: "swordfish",
       });
 
       const { sessionId: ownerSessionId } = await mintCookieAuth(owner.id);

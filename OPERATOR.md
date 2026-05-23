@@ -23,14 +23,13 @@ cp .dev.vars.example .dev.vars
 | ------------------------------------ | -------------------------------------------- |
 | `APP_ENCRYPTION_KEY_CURRENT_VERSION` | Active key version for credential encryption |
 | `APP_ENCRYPTION_KEYS_JSON`           | JSON map of version → base64 AES-GCM key     |
-| `TURNSTILE_SITE_KEY`                 | Public Cloudflare Turnstile widget site key  |
-| `TURNSTILE_SECRET_KEY`               | Server-side Turnstile Siteverify secret key  |
+| `TESSERA_OIDC_ISSUER`                | tessera OIDC issuer URL                      |
+| `TESSERA_OIDC_CLIENT_ID`             | anvil OIDC relying-party client ID           |
+| `TESSERA_OIDC_CLIENT_SECRET`         | anvil OIDC relying-party client secret       |
 
 For production, generate a fresh encryption key. The example key is for local development only and must never be reused in a remote Cloudflare environment.
 
-`.dev.vars.example` also includes Cloudflare Turnstile dummy keys for local development. Do not reuse those dummy keys in a remote Cloudflare environment.
-
-Store production encryption and Turnstile values as Worker secrets, not plaintext `vars` in `wrangler.jsonc`.
+Store production encryption and tessera client credentials as Worker secrets, not plaintext `vars` in `wrangler.jsonc`. `TESSERA_OIDC_ISSUER` is non-secret configuration and can remain a Wrangler var.
 
 ### Production encryption setup
 
@@ -63,23 +62,30 @@ When prompted, enter these values:
 
 If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`. Worker secrets are environment-specific and do not inherit between environments.
 
-### Production Turnstile setup
+### Production tessera setup
 
-Create a Cloudflare Turnstile widget for the deployment hostname, then set both generated keys with Wrangler:
+Register an anvil OIDC client in tessera, then configure the Worker with the issuer URL plus client credentials. The callback URL must be:
 
-```bash
-npx wrangler secret put TURNSTILE_SITE_KEY
-npx wrangler secret put TURNSTILE_SECRET_KEY
+```text
+https://<anvil-hostname>/api/public/oidc/callback
 ```
 
-When prompted, enter the real site key and secret key from Cloudflare. If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`.
+Set the production issuer in `wrangler.jsonc` or through the Cloudflare dashboard:
 
-Live login and invite acceptance require Turnstile. The frontend reads `TURNSTILE_SITE_KEY` from `GET /api/public/app-config`, renders the widget, and sends a `turnstileToken` to:
+```text
+TESSERA_OIDC_ISSUER=https://<tessera-hostname>
+```
 
-- `POST /api/public/auth/login`
-- `POST /api/public/auth/invite/accept`
+Set the client credentials with Wrangler:
 
-The Worker validates each token through Cloudflare Siteverify with `TURNSTILE_SECRET_KEY`. If the site key or secret key is missing, live public auth is blocked with a human-verification error. Mock mode uses a synthetic local token and does not call Turnstile.
+```bash
+npx wrangler secret put TESSERA_OIDC_CLIENT_ID
+npx wrangler secret put TESSERA_OIDC_CLIENT_SECRET
+```
+
+When prompted, enter the client ID and secret from tessera. If you later deploy a named Wrangler environment, repeat those secret commands with `--env <name>`.
+
+anvil accepts only OIDC identities with a `sub`, an email address, and `email_verified=true`. First sign-in creates a user or binds an existing unbound user by verified email. Email collisions and disabled users fail closed.
 
 ### Key rotation
 
@@ -103,7 +109,7 @@ anvil uses three SQLite stores managed by Drizzle ORM:
 
 | Store           | Backing               | Contents                                                        |
 | --------------- | --------------------- | --------------------------------------------------------------- |
-| D1 (`anvil-db`) | Cloudflare D1         | Users, projects, run index, invites, credentials                |
+| D1 (`anvil-db`) | Cloudflare D1         | Users, tessera identities, projects, run index                  |
 | ProjectDO       | Durable Object SQLite | Active run lock, pending queue, dispatch config, webhook config |
 | RunDO           | Durable Object SQLite | Run metadata, steps, rolling logs                               |
 
@@ -127,37 +133,13 @@ npm run db:generate
 
 Do **not** edit files in `drizzle/` directly — they are generated output.
 
-### Bootstrap invite
-
-Create the first user invite to access the app:
-
-```bash
-# Local
-npm run db:seed-initial-user -- --local
-
-# Remote
-npm run db:seed-initial-user -- --remote
-```
-
 ## Development
 
 ```bash
 npm run dev
 ```
 
-Open the local URL printed in the terminal. Accept the bootstrap invite to create your account. The copied `.dev.vars` file provides Turnstile dummy keys that allow localhost live mode to pass human verification without a real challenge.
-
-### Mock mode (frontend-only)
-
-On localhost, the frontend defaults to **mock mode** — a localStorage-backed API client that simulates the full backend without requiring Workers, D1, or migrations. Toggle between mock and live mode from the login page.
-
-Mock mode is particularly useful for:
-
-- Frontend development without the full backend stack
-- Agentic workflows where an AI agent browses the local dev server to verify UI changes
-- Quick iteration on components and pages without dispatch/container dependencies
-
-Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrations applied and Turnstile variables present in `.dev.vars`.
+Open the local URL printed in the terminal and sign in with tessera. Local development requires the full `npm run dev` stack with D1 migrations applied and `.dev.vars` pointing at a reachable tessera-compatible OIDC issuer.
 
 ## All scripts
 
@@ -174,7 +156,6 @@ Live mode requires the full `npm run dev` stack (Wrangler + Vite) with D1 migrat
 | `npm run db:migrate:d1:local`        | Apply D1 migrations locally                                                      |
 | `npm run db:migrate:d1`              | Apply D1 migrations to remote `anvil-db`                                         |
 | `npm run db:generate`                | Regenerate Drizzle migrations from schema                                        |
-| `npm run db:seed-initial-user`       | Seed a bootstrap invite (`-- --local` or `-- --remote`)                          |
 | `npm run format`                     | Format code with Prettier                                                        |
 
 ## Deploying to Cloudflare
@@ -193,7 +174,7 @@ If the first `npm run deploy` fails because queue `anvil-runs` does not exist ye
 npx wrangler queues create anvil-runs
 ```
 
-See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Durable Objects, Queues, Workflows, and Containers. Turnstile keys are environment variables/secrets, not bindings.
+See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Durable Objects, Queues, Workflows, and Containers. tessera client credentials are Worker secrets, not bindings.
 
 ## Cloudflare bindings
 
@@ -210,12 +191,12 @@ See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Dura
 
 ## Testing strategy
 
-| Suite                                | Scope                                                                   | Speed                      |
-| ------------------------------------ | ----------------------------------------------------------------------- | -------------------------- |
-| `npm test`                           | Worker routes, D1/DO invariants, dispatch edge cases, shared utilities  | Fast (seconds)             |
-| `npm run test:e2e`                   | Browser auth, route guards, profile, project CRUD                       | Medium (starts Playwright) |
-| `npm run test:integration:queue`     | Full pipeline: invite → login → project → trigger → run → logs          | Slow (starts local app)    |
-| `npm run test:integration:workflows` | Full pipeline: invite → login → workflow project → trigger → run → logs | Slow (starts local app)    |
+| Suite                                | Scope                                                                  | Speed                      |
+| ------------------------------------ | ---------------------------------------------------------------------- | -------------------------- |
+| `npm test`                           | Worker routes, D1/DO invariants, dispatch edge cases, shared utilities | Fast (seconds)             |
+| `npm run test:e2e`                   | Browser auth, route guards, profile, project CRUD                      | Medium (starts Playwright) |
+| `npm run test:integration:queue`     | Full pipeline: OIDC sign-in → project → trigger → run → logs           | Slow (starts local app)    |
+| `npm run test:integration:workflows` | Full pipeline: OIDC sign-in → workflow project → trigger → run → logs  | Slow (starts local app)    |
 
 - Worker tests run with containers disabled; container-related workerd noise may appear without failing
 - Integration suites are the automated live run-execution checks for queue-backed and Workflow-backed dispatch — don't duplicate this coverage in Playwright
@@ -225,10 +206,10 @@ See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Dura
 
 - **Credential encryption**: Repository tokens and webhook secrets encrypted at rest (AES-GCM with key versioning)
 - **Secret redaction**: Git credentials automatically redacted from all run logs
-- **XSS hardening**: Strict CSP (no inline scripts), escaped log rendering, and explicit allowance for `https://challenges.cloudflare.com` so Turnstile can load
-- **Human verification**: Turnstile required for live login and invite acceptance, with server-side Siteverify validation
-- **Sessions**: KV-backed with opaque IDs, Bearer header auth (not cookies)
-- **Password hashing**: PBKDF2 SHA-256, 100k iterations, per-user salt
+- **XSS hardening**: Strict CSP with no inline scripts and no `eval`
+- **Identity**: tessera OIDC with verified-email binding and fail-closed collision handling
+- **Sessions**: KV-backed with opaque IDs in a Secure HttpOnly `__Host-anvil_session` cookie
+- **CSRF hardening**: Same-origin guard on cookie-bound unsafe methods
 - **Rate limiting**: See [waf.md](waf.md) for WAF and Workers Rate Limiting recommendations
 
 ## Architecture reference

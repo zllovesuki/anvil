@@ -66,7 +66,6 @@ describe("worker run history and log ticket routes", () => {
     const user = await seedUser({
       email: "run-branches@example.com",
       slug: "run-branches-user",
-      password: "swordfish",
     });
 
     const { sessionId } = await mintCookieAuth(user.id);
@@ -101,7 +100,6 @@ describe("worker run history and log ticket routes", () => {
     const user = await seedUser({
       email: "run-pagination@example.com",
       slug: "run-pagination-user",
-      password: "swordfish",
     });
 
     const { sessionId } = await mintCookieAuth(user.id);
@@ -177,7 +175,6 @@ describe("worker run history and log ticket routes", () => {
     const user = await seedUser({
       email: "run-log-upgrade@example.com",
       slug: "run-log-upgrade-user",
-      password: "swordfish",
     });
 
     const { sessionId } = await mintCookieAuth(user.id);
@@ -212,7 +209,6 @@ describe("worker run history and log ticket routes", () => {
     const user = await seedUser({
       email: "run-log-ticket-errors@example.com",
       slug: "run-log-ticket-errors-user",
-      password: "swordfish",
     });
 
     const { sessionId } = await mintCookieAuth(user.id);
@@ -317,7 +313,6 @@ describe("worker run history and log ticket routes", () => {
     const user = await seedUser({
       email: "ws-envelope@example.com",
       slug: "ws-envelope-user",
-      password: "swordfish",
     });
     const project = await seedProject(user, {
       projectSlug: "ws-envelope-project",

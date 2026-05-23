@@ -1,6 +1,6 @@
 import { test, expect, loginViaUi } from "../fixtures/anvil-test";
 
-test.describe("Return login", () => {
+test.describe("tessera returning user", () => {
   test("logs in with the existing tessera identity", async ({ livePage, e2eContext, operatorIdentity }) => {
     await loginViaUi(livePage, e2eContext, operatorIdentity);
 
