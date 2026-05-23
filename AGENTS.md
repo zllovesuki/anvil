@@ -21,7 +21,7 @@ Manual verification is still expected for volatile paths, especially around sand
 
 - Multiple agents may be implementing changes in parallel.
 - Prefer using multiple agents when the work can be split into independent parallel tasks. Plan work to be parallelizable.
-- If a task involves comprehending or modifying `src/worker`, always use `GPT-5.4` with `xhigh` reasoning effort or `Claude Opus 4.6` with `max` reasoning effort.
+- If a task involves comprehending or modifying `src/worker`, always use `GPT-5.5` with `xhigh` reasoning effort or `Claude Opus 4.7` with `max` reasoning effort.
 - Keep edits scoped to the task at hand.
 - Prefer focused, minimal changes over broad refactors or unrelated cleanup.
 - Prefer clarity over cleverness. Favor explicit names and intermediate types over dense inline expressions. Small duplication is acceptable when it materially improves readability and maintenance.
