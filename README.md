@@ -8,6 +8,8 @@
 
 Built with [GPT-5.4](https://openai.com/index/introducing-gpt-5-4/) and [Claude Opus 4.6](https://www.anthropic.com/claude/opus) agentic workflows. 🤖✨
 
+> Upgrading an existing deployment from legacy invite/password auth? Follow [MIGRATION-OIDC.md](MIGRATION-OIDC.md) before deploying latest.
+
 ---
 
 ## 🎯 What is anvil?
@@ -159,7 +161,7 @@ npx wrangler login
 npm run deploy
 ```
 
-`npm run deploy` applies remote D1 migrations first, then builds and deploys the Worker. Production deployments need fresh encryption keys plus tessera OIDC client credentials configured as Worker secrets. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
+`npm run deploy` applies remote D1 migrations first, then builds and deploys the Worker. Production deployments need fresh encryption keys plus tessera OIDC client credentials configured as Worker secrets. Existing password/invite deployments should complete the [OIDC migration](MIGRATION-OIDC.md) first. For the full deployment guide, environment setup, and binding reference, see [OPERATOR.md](OPERATOR.md). 📘
 
 ---
 
@@ -173,8 +175,6 @@ anvil takes security seriously even at v1:
 - 🔑 tessera OIDC sign-in with verified-email identity binding
 - 🧭 Same-origin guard on cookie-bound mutations
 - 🚪 KV sessions with TTL, carried in a Secure HttpOnly `__Host-anvil_session` cookie
-
-For rate limiting and WAF configuration, see [waf.md](waf.md). 🧱
 
 ---
 

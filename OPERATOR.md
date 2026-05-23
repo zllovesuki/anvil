@@ -87,6 +87,8 @@ When prompted, enter the client ID and secret from tessera. If you later deploy 
 
 anvil accepts only OIDC identities with a `sub`, an email address, and `email_verified=true`. First sign-in creates a user or binds an existing unbound user by verified email. Email collisions and disabled users fail closed.
 
+Existing deployments upgrading from legacy invite/password auth should follow [MIGRATION-OIDC.md](MIGRATION-OIDC.md) before deploying latest.
+
 ### Key rotation
 
 anvil supports versioned encryption keys. Rotation is additive:
@@ -210,7 +212,6 @@ See `wrangler.jsonc` for binding configuration: D1 database, KV namespaces, Dura
 - **Identity**: tessera OIDC with verified-email binding and fail-closed collision handling
 - **Sessions**: KV-backed with opaque IDs in a Secure HttpOnly `__Host-anvil_session` cookie
 - **CSRF hardening**: Same-origin guard on cookie-bound unsafe methods
-- **Rate limiting**: See [waf.md](waf.md) for WAF and Workers Rate Limiting recommendations
 
 ## Architecture reference
 
