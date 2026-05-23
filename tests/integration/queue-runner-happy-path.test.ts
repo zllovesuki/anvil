@@ -4,19 +4,16 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 import {
-  type BootstrapInviteSeedResult,
   type IntegrationContext,
-  type OperatorCredentials,
+  type OperatorIdentity,
   type SessionId,
-  acceptBootstrapInvite,
   applyMigrations,
   assert,
   closeContextLogs,
-  createOperatorCredentials,
-  login,
+  createOperatorIdentity,
+  oidcSignInOnce,
   printFailureContext,
   printLogTails,
-  seedBootstrapInvite,
   startDevServer,
   stopDevServer,
 } from "./queue-runner/harness";
@@ -25,11 +22,12 @@ import {
   scenarioSingleRunPasses,
   scenarioWebhookTriggeredRunPasses,
 } from "./queue-runner/scenarios";
+import { startMockOidcProvider, type MockOidcServer } from "../helpers/oidc-mock";
 
 describe("queue runner integration", () => {
   let context: IntegrationContext | null = null;
-  let invite: BootstrapInviteSeedResult | null = null;
-  let operatorCredentials: OperatorCredentials | null = null;
+  let mockOidc: MockOidcServer | null = null;
+  let operatorIdentity: OperatorIdentity | null = null;
   let tempDir: string | null = null;
   let preserveTempState = false;
 
@@ -40,37 +38,12 @@ describe("queue runner integration", () => {
 
   const ensureOperatorSession = async (): Promise<SessionId> => {
     const currentContext = requireContext();
-    assert(invite !== null, "Bootstrap invite not initialized.");
 
-    if (operatorCredentials === null) {
-      operatorCredentials = createOperatorCredentials();
-      const accepted = await acceptBootstrapInvite(currentContext.baseUrl, invite.token, operatorCredentials);
-      assert(
-        accepted.user.slug === operatorCredentials.slug,
-        `Expected accepted user slug ${operatorCredentials.slug}.`,
-      );
-      assert(
-        accepted.user.email === operatorCredentials.email,
-        `Expected accepted user email ${operatorCredentials.email}.`,
-      );
-      assert(
-        accepted.user.displayName === operatorCredentials.displayName,
-        `Expected accepted displayName ${operatorCredentials.displayName}.`,
-      );
-      assert(accepted.expiresAt.length > 0, "Expected invite acceptance to return expiresAt.");
+    if (operatorIdentity === null) {
+      operatorIdentity = createOperatorIdentity();
     }
 
-    const loggedIn = await login(currentContext.baseUrl, operatorCredentials);
-    assert(
-      loggedIn.user.slug === operatorCredentials.slug,
-      `Expected logged in user slug ${operatorCredentials.slug}.`,
-    );
-    assert(
-      loggedIn.user.email === operatorCredentials.email,
-      `Expected logged in user email ${operatorCredentials.email}.`,
-    );
-    assert(loggedIn.expiresAt.length > 0, "Expected login to return expiresAt.");
-    return loggedIn.sessionId;
+    return await oidcSignInOnce(currentContext, operatorIdentity);
   };
 
   const runScenario = async (scenario: (baseUrl: string, sessionId: SessionId) => Promise<void>): Promise<void> => {
@@ -90,9 +63,9 @@ describe("queue runner integration", () => {
     console.log(`Using temp state: ${tempDir}`);
 
     try {
+      mockOidc = await startMockOidcProvider();
       await applyMigrations(tempDir);
-      invite = await seedBootstrapInvite(tempDir);
-      context = await startDevServer(tempDir);
+      context = await startDevServer(tempDir, mockOidc.issuer);
     } catch (error) {
       preserveTempState = true;
       throw error;
@@ -105,11 +78,18 @@ describe("queue runner integration", () => {
       await closeContextLogs(context);
     }
 
+    if (mockOidc) {
+      await mockOidc.close();
+    }
+
     if (!tempDir) {
       return;
     }
 
     if (!preserveTempState) {
+      if (context) {
+        await rm(context.devVarsPath, { force: true });
+      }
       await rm(tempDir, { recursive: true, force: true });
       return;
     }
@@ -123,7 +103,7 @@ describe("queue runner integration", () => {
     console.error(`Preserved temp state: ${tempDir}`);
   });
 
-  it("accepts the bootstrap invite, logs in, and passes a single queued run", async () => {
+  it("signs in with tessera and passes a single queued run", async () => {
     await runScenario(scenarioSingleRunPasses);
   });
 

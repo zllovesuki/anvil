@@ -4,7 +4,6 @@ import { requireAuth } from "@/worker/auth";
 import type { AppEnv } from "@/worker/hono";
 import {
   handleCancelRun,
-  handleCreateInvite,
   handleCreateRunLogTicket,
   handleGetMe,
   handleDeleteProjectWebhook,
@@ -20,12 +19,14 @@ import {
   handleUpsertProjectWebhook,
   handleUpdateProject,
 } from "@/worker/api/private";
+import { requireSameOrigin } from "@/worker/security/same-origin";
 
 const privateRoutes = new Hono<AppEnv>();
 
 privateRoutes.get("/runs/:runId/logs", handleGetRunLogsWebSocket);
 
 privateRoutes.use("*", requireAuth);
+privateRoutes.use("*", requireSameOrigin);
 privateRoutes.get("/me", handleGetMe);
 privateRoutes.get("/projects", handleGetProjects);
 privateRoutes.get("/projects/:projectId", handleGetProjectDetail);
@@ -40,6 +41,5 @@ privateRoutes.put("/projects/:projectId/webhooks/:provider", handleUpsertProject
 privateRoutes.post("/projects/:projectId/webhooks/:provider/rotate-secret", handleRotateProjectWebhookSecret);
 privateRoutes.delete("/projects/:projectId/webhooks/:provider", handleDeleteProjectWebhook);
 privateRoutes.post("/projects/:projectId/runs", handleTriggerProjectRun);
-privateRoutes.post("/invites", handleCreateInvite);
 
 export { privateRoutes };

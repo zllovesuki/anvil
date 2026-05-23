@@ -9,11 +9,10 @@ import {
   OwnerSlug,
   ProjectId,
   ProjectSlug,
-  type LoginRequest,
-  type LoginResponse,
   UserId,
 } from "@/contracts";
-import { createSession, hashPassword } from "@/worker/auth";
+import { createSession } from "@/worker/auth";
+import { SESSION_COOKIE_WIRE_NAME } from "@/worker/auth/cookies";
 import { createD1Db } from "@/worker/db/d1";
 import * as d1Schema from "@/worker/db/d1/schema";
 import * as projectDoSchema from "@/worker/db/durable/schema/project-do";
@@ -130,8 +129,6 @@ export const seedUser = async (overrides: SeedUserOverrides = {}): Promise<Seede
     password,
   };
 
-  const passwordHash = await hashPassword(password, env);
-
   await db.insert(d1Schema.users).values({
     id: user.id,
     slug: user.slug,
@@ -139,15 +136,6 @@ export const seedUser = async (overrides: SeedUserOverrides = {}): Promise<Seede
     displayName: user.displayName,
     createdAt: now,
     disabledAt: null,
-  });
-  await db.insert(d1Schema.passwordCredentials).values({
-    userId: user.id,
-    algorithm: passwordHash.algorithm,
-    digest: passwordHash.digest,
-    iterations: passwordHash.iterations,
-    salt: passwordHash.salt,
-    passwordHash: passwordHash.passwordHash,
-    updatedAt: now,
   });
 
   return user;
@@ -207,8 +195,19 @@ export const createAuthenticatedSession = async (userId: UserId): Promise<string
 
 export const authHeaders = (sessionId: string, headers?: HeadersInit): Headers => {
   const result = new Headers(headers);
-  result.set("authorization", `Bearer ${sessionId}`);
+  result.set("cookie", `${SESSION_COOKIE_WIRE_NAME}=${sessionId}`);
+  if (!result.has("origin")) {
+    result.set("origin", DEFAULT_TEST_ORIGIN);
+  }
   return result;
+};
+
+export const mintCookieAuth = async (
+  userId: UserId,
+  headers?: HeadersInit,
+): Promise<{ sessionId: string; headers: Headers }> => {
+  const sessionId = await createAuthenticatedSession(userId);
+  return { sessionId, headers: authHeaders(sessionId, headers) };
 };
 
 export const fetchJsonFromOrigin = async <T>(
@@ -229,24 +228,6 @@ export const fetchJsonFromOrigin = async <T>(
 
 export const fetchJson = async <T>(path: string, init: RequestInit = {}): Promise<JsonFetchResult<T>> =>
   await fetchJsonFromOrigin(DEFAULT_TEST_ORIGIN, path, init);
-
-export const loginViaRoute = async (
-  credentials: Pick<SeededUser, "email" | "password">,
-): Promise<JsonFetchResult<LoginResponse>> => {
-  const body = {
-    email: credentials.email,
-    password: credentials.password,
-    turnstileToken: "test-turnstile-token",
-  } satisfies LoginRequest;
-
-  return await fetchJsonFromOrigin<LoginResponse>(LOOPBACK_TEST_ORIGIN, "/api/public/auth/login", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
-  });
-};
 
 export const getProjectStub = (projectId: ProjectId) => env.PROJECT_DO.getByName(projectId);
 

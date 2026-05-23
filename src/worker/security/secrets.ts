@@ -1,6 +1,6 @@
 import { HttpError } from "@/worker/http";
 import { getConfig } from "@/worker/config";
-import { toArrayBuffer } from "@/worker/services/crypto";
+import { decodeBase64, toArrayBuffer } from "@/worker/services/crypto";
 
 const AES_GCM_ALGORITHM = "AES-GCM";
 const AES_GCM_NONCE_BYTES = 12;
@@ -21,24 +21,6 @@ const importedKeys = new Map<string, Promise<CryptoKey>>();
 
 const encryptionNotConfigured = (message = "Repository token encryption is not configured."): HttpError =>
   new HttpError(500, "encryption_not_configured", message);
-
-const decodeBase64 = (value: string): Uint8Array => {
-  let normalized = value.trim().replace(/-/gu, "+").replace(/_/gu, "/");
-
-  const remainder = normalized.length % 4;
-  if (remainder > 0) {
-    normalized = normalized.padEnd(normalized.length + (4 - remainder), "=");
-  }
-
-  const binary = atob(normalized);
-  const output = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    output[index] = binary.charCodeAt(index);
-  }
-
-  return output;
-};
 
 const readEncryptionConfig = (env: Env): EncryptionKeyConfig => {
   const config = getConfig(env);

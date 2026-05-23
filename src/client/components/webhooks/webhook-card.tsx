@@ -2,7 +2,6 @@ import type { WebhookProvider, WebhookSummary } from "@/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Webhook } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useAuth } from "@/client/auth";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBanner } from "@/client/components/ui";
 import { formatApiError, getApiClient, queryKeys } from "@/client/lib";
 import { useToast } from "@/client/toast";
@@ -20,7 +19,6 @@ interface WebhookCardProps {
 }
 
 export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
-  const { mode } = useAuth();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -41,18 +39,18 @@ export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
     `${window.location.origin}/api/public/hooks/${provider}/${project.ownerSlug}/${project.projectSlug}`;
 
   const webhooksQuery = useQuery({
-    queryKey: queryKeys.projectWebhooks(mode, projectId),
-    queryFn: () => getApiClient(mode).getProjectWebhooks(projectId),
+    queryKey: queryKeys.projectWebhooks(projectId),
+    queryFn: () => getApiClient().getProjectWebhooks(projectId),
   });
 
   const refreshWebhooks = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.projectWebhooks(mode, projectId) });
-  }, [mode, projectId, queryClient]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.projectWebhooks(projectId) });
+  }, [projectId, queryClient]);
 
   const handleToggle = async (webhook: WebhookSummary) => {
     setTogglingProvider(webhook.provider);
     try {
-      await getApiClient(mode).updateWebhook(projectId, webhook.provider, {
+      await getApiClient().updateWebhook(projectId, webhook.provider, {
         enabled: !webhook.enabled,
       });
       pushToast({
@@ -73,7 +71,7 @@ export const WebhookCard = ({ projectId, project }: WebhookCardProps) => {
     const displayName = webhookProviderCatalog[provider].displayName;
 
     try {
-      await getApiClient(mode).deleteWebhook(projectId, provider);
+      await getApiClient().deleteWebhook(projectId, provider);
       pushToast({ tone: "success", title: `${displayName} webhook deleted` });
       setDeleteWebhook(null);
       await refreshWebhooks();

@@ -1,11 +1,8 @@
-import type { AuthMode } from "@/client/lib/storage";
-
 export const queryKeys = {
-  appConfig: (mode: AuthMode) => ["app-config", mode] as const,
-  projectDetail: (mode: AuthMode, projectId: string) => ["project-detail", mode, projectId] as const,
-  projectRuns: (mode: AuthMode, projectId: string) => ["project-runs", mode, projectId] as const,
-  projectWebhooks: (mode: AuthMode, projectId: string) => ["project-webhooks", mode, projectId] as const,
-  projectsRoot: (mode: AuthMode) => ["projects", mode] as const,
-  projects: (mode: AuthMode, userId: string) => ["projects", mode, userId] as const,
-  runDetail: (mode: AuthMode, runId: string) => ["run-detail", mode, runId] as const,
+  projectDetail: (projectId: string) => ["project-detail", projectId] as const,
+  projectRuns: (projectId: string) => ["project-runs", projectId] as const,
+  projectWebhooks: (projectId: string) => ["project-webhooks", projectId] as const,
+  projectsRoot: () => ["projects"] as const,
+  projects: (userId: string) => ["projects", userId] as const,
+  runDetail: (runId: string) => ["run-detail", runId] as const,
 } as const;

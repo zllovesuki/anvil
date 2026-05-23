@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { RunWsStateMessage, type LogEvent, type RunWsMessage } from "@/contracts";
-import { useAuth } from "@/client/auth";
 import { getApiClient } from "@/client/lib";
 
 export interface UseLogStreamOptions {
@@ -14,7 +13,6 @@ export type LogStreamStatus = "idle" | "connecting" | "connected" | "reconnectin
 
 export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
   const { runId, enabled, onEvent, onStateUpdate } = options;
-  const { mode } = useAuth();
   const [status, setStatus] = useState<LogStreamStatus>("idle");
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -38,7 +36,7 @@ export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
       setStatus("connecting");
 
       try {
-        const client = getApiClient(mode);
+        const client = getApiClient();
         const { ticket } = await client.getLogStreamTicket(runId);
 
         if (!active) return;
@@ -112,7 +110,7 @@ export const useLogStream = (options: UseLogStreamOptions): LogStreamStatus => {
         wsRef.current = null;
       }
     };
-  }, [enabled, runId, mode]);
+  }, [enabled, runId]);
 
   return enabled ? status : "idle";
 };

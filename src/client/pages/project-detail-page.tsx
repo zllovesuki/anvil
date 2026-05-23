@@ -2,7 +2,6 @@ import type { ProjectDetail } from "@/contracts";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play, RefreshCw } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { useAuth } from "@/client/auth";
 import { ProjectMetadataCard, RunRow, WebhookCard } from "@/client/components";
 import { Breadcrumbs, Button, EmptyState, ErrorBanner, Skeleton } from "@/client/components/ui";
 import { formatApiError, getApiClient, queryKeys } from "@/client/lib";
@@ -49,22 +48,21 @@ const ProjectDetailSkeleton = () => (
 
 export const ProjectDetailPage = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const { mode } = useAuth();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const resolvedProjectId = projectId ?? "";
 
   const detailQuery = useQuery({
-    queryKey: queryKeys.projectDetail(mode, resolvedProjectId),
-    queryFn: () => getApiClient(mode).getProjectDetail(resolvedProjectId),
+    queryKey: queryKeys.projectDetail(resolvedProjectId),
+    queryFn: () => getApiClient().getProjectDetail(resolvedProjectId),
     enabled: resolvedProjectId.length > 0,
     refetchInterval: (query) => (hasRunActivity(query.state.data) ? 7_000 : false),
   });
 
   const runsQuery = useInfiniteQuery({
-    queryKey: queryKeys.projectRuns(mode, resolvedProjectId),
+    queryKey: queryKeys.projectRuns(resolvedProjectId),
     queryFn: ({ pageParam }) =>
-      getApiClient(mode).getProjectRuns(resolvedProjectId, {
+      getApiClient().getProjectRuns(resolvedProjectId, {
         limit: RUN_PAGE_LIMIT,
         cursor: pageParam ?? undefined,
       }),
@@ -75,13 +73,13 @@ export const ProjectDetailPage = () => {
   });
 
   const triggerRunMutation = useMutation({
-    mutationFn: () => getApiClient(mode).triggerRun(resolvedProjectId),
+    mutationFn: () => getApiClient().triggerRun(resolvedProjectId),
     onSuccess: async (response) => {
       pushToast({ tone: "success", title: "Run triggered", message: `Run ${response.runId} queued.` });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, resolvedProjectId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(mode, resolvedProjectId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot(mode) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(resolvedProjectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(resolvedProjectId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot() }),
       ]);
     },
     onError: (reason) => {

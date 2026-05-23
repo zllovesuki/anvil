@@ -5,6 +5,7 @@ import type { RunPaginationCursor } from "@/worker/db/d1/repositories";
 import { HttpError } from "@/worker/http";
 import { serializeRunSummary } from "@/worker/presentation/serializers";
 import { createLogger, extractTimestampFromDurableEntityId } from "@/worker/services";
+import { decodeBase64Url, encodeBase64Url } from "@/worker/services/crypto";
 import { toCodecIssueDetails } from "@/lib/codec-errors";
 export {
   requireWebhookProviderParam,
@@ -17,25 +18,14 @@ export const UNIQUE_PROJECT_SLUG_CONSTRAINT =
   "UNIQUE constraint failed: project_index.owner_slug, project_index.project_slug";
 export const DEFAULT_PROJECT_RUN_LIMIT = 20;
 export const MAX_PROJECT_RUN_LIMIT = 100;
+const textDecoder = new TextDecoder();
+const textEncoder = new TextEncoder();
 
 export const isConstraintError = (error: unknown, messageFragment: string): boolean =>
   error instanceof Error && error.message.includes(messageFragment);
 
 export const getProjectStub = (env: AppContext["env"], projectId: ProjectId) => env.PROJECT_DO.getByName(projectId);
 export const getRunStub = (env: AppContext["env"], runId: RunId) => env.RUN_DO.getByName(runId);
-
-const decodeBase64Url = (value: string): string => {
-  let normalized = value.replace(/-/gu, "+").replace(/_/gu, "/");
-  const remainder = normalized.length % 4;
-  if (remainder > 0) {
-    normalized = normalized.padEnd(normalized.length + (4 - remainder), "=");
-  }
-
-  return atob(normalized);
-};
-
-const encodeBase64Url = (value: string): string =>
-  btoa(value).replace(/\+/gu, "-").replace(/\//gu, "_").replace(/=+$/u, "");
 
 export const parseProjectRunsQuery = (c: AppContext): { limit: number; cursor?: string } => {
   const limitValue = c.req.query("limit");
@@ -60,7 +50,7 @@ export const decodeRunCursor = (cursor: string): RunPaginationCursor => {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(decodeBase64Url(cursor)) as unknown;
+    parsed = JSON.parse(textDecoder.decode(decodeBase64Url(cursor))) as unknown;
   } catch (error) {
     throw new HttpError(400, "invalid_cursor", "Cursor is invalid.", error);
   }
@@ -85,10 +75,12 @@ export const decodeRunCursor = (cursor: string): RunPaginationCursor => {
 
 export const encodeRunCursor = (cursor: RunPaginationCursor): string =>
   encodeBase64Url(
-    JSON.stringify({
-      queuedAt: cursor.queuedAt,
-      runId: cursor.runId,
-    }),
+    textEncoder.encode(
+      JSON.stringify({
+        queuedAt: cursor.queuedAt,
+        runId: cursor.runId,
+      }),
+    ),
   );
 
 export const mergeRunSummaryWithMeta = (runId: string, meta: RunMetaState, base: RunSummary | null) =>

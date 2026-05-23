@@ -1,12 +1,10 @@
 import type {
   CreateWebhookRequest,
-  CreateInviteResponse,
   GetMeResponse,
   PublicAppConfigResponse,
   GetProjectRunsResponse,
   GetProjectsResponse,
   GetProjectWebhooksResponse,
-  LoginResponse,
   LogStreamTicketResponse,
   ProjectDetail,
   ProjectResponse,
@@ -21,14 +19,11 @@ import type {
 
 export interface ApiClient {
   getAppConfig(): Promise<PublicAppConfigResponse>;
-  login(payload: unknown): Promise<LoginResponse>;
   logout(): Promise<void>;
   getMe(): Promise<GetMeResponse>;
   getProjects(): Promise<GetProjectsResponse>;
   createProject(payload: unknown): Promise<ProjectResponse>;
   updateProject(projectId: string, payload: unknown): Promise<ProjectResponse>;
-  acceptInvite(payload: unknown): Promise<LoginResponse>;
-  createInvite(payload: unknown): Promise<CreateInviteResponse>;
   getProjectDetail(projectId: string): Promise<ProjectDetail>;
   getProjectRuns(projectId: string, query?: { limit?: number; cursor?: string }): Promise<GetProjectRunsResponse>;
   triggerRun(projectId: string, payload?: TriggerRunRequest): Promise<TriggerRunAcceptedResponse>;

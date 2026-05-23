@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import { buildGitCheckoutAuth, redactSecrets } from "@/worker/sandbox/git";
 import { decryptSecret, encryptSecret, validateAppEncryptionConfig } from "@/worker/security/secrets";
+import { decodeBase64, decodeBase64Url, encodeBase64, encodeBase64Url } from "@/worker/services/crypto";
 
 import { registerWorkerRuntimeHooks } from "../helpers/worker-hooks";
 
 describe("worker utilities", () => {
   registerWorkerRuntimeHooks();
+  const textDecoder = new TextDecoder();
+  const textEncoder = new TextEncoder();
 
   const buildEncryptionEnv = (
     overrides: Partial<Pick<Env, "APP_ENCRYPTION_KEY_CURRENT_VERSION" | "APP_ENCRYPTION_KEYS_JSON">>,
@@ -73,6 +76,16 @@ describe("worker utilities", () => {
     await expect(validateAppEncryptionConfig(invalidEnv)).rejects.toMatchObject({
       code: "encryption_not_configured",
     });
+  });
+
+  it("round-trips standard and URL-safe base64 helpers", () => {
+    const bytes = new Uint8Array([0, 1, 2, 251, 252, 253, 254, 255]);
+    expect(Array.from(decodeBase64(encodeBase64(bytes)))).toEqual(Array.from(bytes));
+    expect(Array.from(decodeBase64Url(encodeBase64Url(bytes)))).toEqual(Array.from(bytes));
+    expect(Array.from(decodeBase64Url(encodeBase64Url(bytes).replace(/=+$/u, "")))).toEqual(Array.from(bytes));
+
+    const jsonBytes = textEncoder.encode(JSON.stringify({ message: "hello tessera" }));
+    expect(textDecoder.decode(decodeBase64Url(encodeBase64Url(jsonBytes)))).toBe('{"message":"hello tessera"}');
   });
 
   it("builds provider-specific git auth headers and redacts secrets", () => {

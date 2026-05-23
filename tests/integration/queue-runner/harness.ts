@@ -1,6 +1,6 @@
 import { spawn, execFile as execFileCallback, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import { join, resolve } from "node:path";
 import process from "node:process";
@@ -10,14 +10,12 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import type {
-  AcceptInviteRequest,
   CreateProjectRequest,
   CreateWebhookRequest,
   DispatchMode,
+  GetMeResponse,
   GetProjectRunsResponse,
   GetProjectWebhooksResponse,
-  LoginRequest,
-  LoginResponse,
   ProjectDetail,
   ProjectResponse,
   RunDetail,
@@ -27,6 +25,16 @@ import type {
   UpsertWebhookResponse,
 } from "@/contracts";
 import { BranchName, CommitSha, OwnerSlug, ProjectSlug } from "@/contracts";
+import {
+  E2E_BASELINE_EMAIL,
+  E2E_BASELINE_NAME,
+  E2E_BASELINE_SLUG,
+  E2E_BASELINE_TESSERA_SUB,
+  setMockOidcIdentity,
+  TEST_OIDC_CLIENT_ID,
+  TEST_OIDC_CLIENT_SECRET,
+  type MockIdentity,
+} from "../../helpers/oidc-mock";
 
 const execFile = promisify(execFileCallback);
 
@@ -44,21 +52,15 @@ const PROJECT_SETTLE_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 1_000;
 const NPX_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx";
 const VITE_BIN_PATH = resolve(REPO_ROOT, "node_modules/vite/bin/vite.js");
-const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
-const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
+const SESSION_COOKIE_NAME = "__Host-anvil_session";
+const DEV_VARS_EXAMPLE_PATH = resolve(REPO_ROOT, ".dev.vars.example");
 
-export interface BootstrapInviteSeedResult {
-  mode: "local" | "remote";
-  database: string;
-  inviteId: string;
-  token: string;
-  expiresAt: string;
-  sentinelCreator: string;
-  dryRun: boolean;
+export interface OperatorIdentity extends MockIdentity {
+  displayName: string;
+  slug: OwnerSlug;
 }
 
-export type OperatorCredentials = Omit<AcceptInviteRequest, "token" | "turnstileToken">;
-export type SessionId = LoginResponse["sessionId"];
+export type SessionId = string;
 export type ProjectRecord = ProjectResponse["project"];
 export type ProjectId = ProjectRecord["id"];
 export type IndexedRun = GetProjectRunsResponse["runs"][number];
@@ -79,6 +81,9 @@ export interface IntegrationContext {
   stderrLogPath: string;
   stdoutStream: WriteStream;
   stderrStream: WriteStream;
+  cloudflareEnv: string;
+  devVarsPath: string;
+  oidcIssuer: string;
 }
 
 class AssertionError extends Error {}
@@ -210,24 +215,29 @@ export const applyMigrations = async (persistTo: string): Promise<void> => {
   );
 };
 
-export const seedBootstrapInvite = async (persistTo: string): Promise<BootstrapInviteSeedResult> => {
-  const { stdout } = await execCommand(
-    process.execPath,
-    ["--import", "tsx", "scripts/seed-bootstrap-invite.ts", "--local", "--persist-to", persistTo, "--json"],
-    {
-      ...process.env,
-      TSX_TSCONFIG_PATH: "tsconfig.scripts.json",
-      CI: "1",
-      NO_D1_WARNING: "true",
-    },
-  );
+const createDevVarsFile = async (oidcIssuer: string): Promise<{ cloudflareEnv: string; devVarsPath: string }> => {
+  const cloudflareEnv = `e2e-${process.pid}-${Date.now()}`;
+  const devVarsPath = resolve(REPO_ROOT, `.dev.vars.${cloudflareEnv}`);
+  const template = await readFile(DEV_VARS_EXAMPLE_PATH, "utf8");
+  const stripped = template
+    .replace(/^TESSERA_OIDC_ISSUER=.*$/gmu, "")
+    .replace(/^TESSERA_OIDC_CLIENT_ID=.*$/gmu, "")
+    .replace(/^TESSERA_OIDC_CLIENT_SECRET=.*$/gmu, "")
+    .trimEnd();
+  const content =
+    `${stripped}\n` +
+    `TESSERA_OIDC_ISSUER=${oidcIssuer}\n` +
+    `TESSERA_OIDC_CLIENT_ID=${TEST_OIDC_CLIENT_ID}\n` +
+    `TESSERA_OIDC_CLIENT_SECRET=${TEST_OIDC_CLIENT_SECRET}\n`;
 
-  return JSON.parse(stdout.trim()) as BootstrapInviteSeedResult;
+  await writeFile(devVarsPath, content);
+  return { cloudflareEnv, devVarsPath };
 };
 
-export const startDevServer = async (persistTo: string): Promise<IntegrationContext> => {
+export const startDevServer = async (persistTo: string, oidcIssuer: string): Promise<IntegrationContext> => {
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
+  const { cloudflareEnv, devVarsPath } = await createDevVarsFile(oidcIssuer);
   const stdoutLogPath = join(persistTo, "dev.stdout.log");
   const stderrLogPath = join(persistTo, "dev.stderr.log");
   const stdoutStream = createWriteStream(stdoutLogPath, { flags: "a" });
@@ -237,8 +247,7 @@ export const startDevServer = async (persistTo: string): Promise<IntegrationCont
     env: {
       ...process.env,
       ANVIL_PERSIST_STATE_PATH: persistTo,
-      TURNSTILE_SITE_KEY: TURNSTILE_TEST_SITE_KEY,
-      TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET_KEY,
+      CLOUDFLARE_ENV: cloudflareEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
@@ -260,6 +269,7 @@ export const startDevServer = async (persistTo: string): Promise<IntegrationCont
     await stopDevServer(serverProcess);
     await closeWriteStream(stdoutStream);
     await closeWriteStream(stderrStream);
+    await rm(devVarsPath, { force: true });
     throw error;
   }
 
@@ -272,6 +282,9 @@ export const startDevServer = async (persistTo: string): Promise<IntegrationCont
     stderrLogPath,
     stdoutStream,
     stderrStream,
+    cloudflareEnv,
+    devVarsPath,
+    oidcIssuer,
   };
 };
 
@@ -316,18 +329,22 @@ export const closeContextLogs = async (context: IntegrationContext): Promise<voi
   await closeWriteStream(context.stderrStream);
 };
 
-const authHeaders = (sessionId: SessionId): HeadersInit => ({
-  authorization: `Bearer ${sessionId}`,
-  "content-type": "application/json; charset=utf-8",
-});
+const authHeaders = (baseUrl: string, sessionId: SessionId, headers?: HeadersInit): Headers => {
+  const result = new Headers(headers);
+  result.set("cookie", `${SESSION_COOKIE_NAME}=${sessionId}`);
+  result.set("origin", new URL(baseUrl).origin);
+  return result;
+};
 
-export const createOperatorCredentials = (): OperatorCredentials => {
-  const slug = OwnerSlug.assertDecode(`queue-${slugFragment()}`);
+export const createOperatorIdentity = (): OperatorIdentity => {
+  const slug = OwnerSlug.assertDecode(E2E_BASELINE_SLUG);
   return {
-    email: `${slug}@example.com`,
-    displayName: "Queue Runner Integration",
+    sub: E2E_BASELINE_TESSERA_SUB,
+    email: E2E_BASELINE_EMAIL,
+    email_verified: true,
+    name: E2E_BASELINE_NAME,
+    displayName: E2E_BASELINE_NAME,
     slug,
-    password: `P@ss-${slugFragment()}-${Date.now()}`,
   };
 };
 
@@ -346,43 +363,60 @@ const buildGitHubRepository = (repositoryUrl: string, defaultBranch: string) => 
 const signGitHubPayload = (secret: string, body: string): string =>
   `sha256=${crypto.createHmac("sha256", secret).update(body).digest("hex")}`;
 
-export const acceptBootstrapInvite = async (
-  baseUrl: string,
-  token: string,
-  credentials: OperatorCredentials,
-): Promise<LoginResponse> => {
-  const body = {
-    token,
-    email: credentials.email,
-    displayName: credentials.displayName,
-    slug: credentials.slug,
-    password: credentials.password,
-    turnstileToken: "test-turnstile-token",
-  } satisfies AcceptInviteRequest;
+const extractCookieValue = (setCookie: string | null, name: string): string => {
+  const cookie = setCookie
+    ?.split(/,(?=\s*[^;=]+=[^;]+)/u)
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
 
-  return await apiFetch<LoginResponse>(baseUrl, "/api/public/auth/invite/accept", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
-  });
+  if (!cookie) {
+    throw new Error(`Missing ${name} cookie in Set-Cookie header.`);
+  }
+
+  return cookie.slice(name.length + 1).split(";", 1)[0] ?? "";
 };
 
-export const login = async (baseUrl: string, credentials: OperatorCredentials): Promise<LoginResponse> => {
-  const body = {
-    email: credentials.email,
-    password: credentials.password,
-    turnstileToken: "test-turnstile-token",
-  } satisfies LoginRequest;
+export const oidcSignInOnce = async (
+  context: Pick<IntegrationContext, "baseUrl" | "oidcIssuer">,
+  identity: OperatorIdentity,
+): Promise<SessionId> => {
+  await setMockOidcIdentity(context.oidcIssuer, identity);
 
-  return await apiFetch<LoginResponse>(baseUrl, "/api/public/auth/login", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
+  const start = await fetch(new URL("/api/public/oidc/start?return_to=%2Fapp%2Fprojects", context.baseUrl), {
+    redirect: "manual",
+    headers: { "cf-connecting-ip": "127.0.0.1" },
   });
+  assert(start.status === 302, `Expected OIDC start redirect, got ${start.status}.`);
+  const txCookie = extractCookieValue(start.headers.get("set-cookie"), "__Host-anvil_oidc_tx");
+  const authorizationUrl = start.headers.get("location");
+  assert(authorizationUrl, "Expected OIDC start to return authorization Location.");
+
+  const authorization = await fetch(authorizationUrl, { redirect: "manual" });
+  assert(
+    authorization.status === 307 || authorization.status === 302,
+    `Expected authorize redirect, got ${authorization.status}.`,
+  );
+  const callbackUrl = authorization.headers.get("location");
+  assert(callbackUrl, "Expected mock provider to redirect to callback.");
+
+  const callback = await fetch(callbackUrl, {
+    redirect: "manual",
+    headers: {
+      cookie: `__Host-anvil_oidc_tx=${txCookie}`,
+      "cf-connecting-ip": "127.0.0.1",
+    },
+  });
+  assert(callback.status === 302, `Expected OIDC callback redirect, got ${callback.status} ${await callback.text()}.`);
+
+  const sessionId = extractCookieValue(callback.headers.get("set-cookie"), SESSION_COOKIE_NAME);
+  const me = await apiFetch<GetMeResponse>(context.baseUrl, "/api/private/me", {
+    headers: authHeaders(context.baseUrl, sessionId),
+  });
+  assert(me.user.slug === identity.slug, `Expected signed-in slug ${identity.slug}, got ${me.user.slug}.`);
+  assert(me.user.email === identity.email, `Expected signed-in email ${identity.email}, got ${me.user.email}.`);
+  assert(me.user.displayName === identity.displayName, `Expected signed-in displayName ${identity.displayName}.`);
+
+  return sessionId;
 };
 
 export const createProject = async (
@@ -402,7 +436,7 @@ export const createProject = async (
 
   const response = await apiFetch<ProjectResponse>(baseUrl, "/api/private/projects", {
     method: "POST",
-    headers: authHeaders(sessionId),
+    headers: authHeaders(baseUrl, sessionId, { "content-type": "application/json" }),
     body: JSON.stringify(body),
   });
 
@@ -422,7 +456,7 @@ export const triggerRun = async (baseUrl: string, sessionId: SessionId, projectI
   const body = {} satisfies TriggerRunRequest;
   const response = await apiFetch<TriggerRunAcceptedResponse>(baseUrl, `/api/private/projects/${projectId}/runs`, {
     method: "POST",
-    headers: authHeaders(sessionId),
+    headers: authHeaders(baseUrl, sessionId, { "content-type": "application/json" }),
     body: JSON.stringify(body),
   });
 
@@ -444,7 +478,7 @@ export const putGitHubWebhook = async (
     `/api/private/projects/${projectId}/webhooks/${GITHUB_WEBHOOK_PROVIDER}`,
     {
       method: "PUT",
-      headers: authHeaders(sessionId),
+      headers: authHeaders(baseUrl, sessionId, { "content-type": "application/json" }),
       body: JSON.stringify(body),
     },
   );
@@ -458,9 +492,7 @@ export const getProjectWebhooks = async (
   projectId: ProjectId,
 ): Promise<GetProjectWebhooksResponse> =>
   await apiFetch<GetProjectWebhooksResponse>(baseUrl, `/api/private/projects/${projectId}/webhooks`, {
-    headers: {
-      authorization: `Bearer ${sessionId}`,
-    },
+    headers: authHeaders(baseUrl, sessionId),
   });
 
 export const postGitHubPushWebhook = async (
@@ -501,9 +533,7 @@ export const postGitHubPushWebhook = async (
 
 export const getRunDetail = async (baseUrl: string, sessionId: SessionId, runId: RunId): Promise<RunDetail> =>
   await apiFetch<RunDetail>(baseUrl, `/api/private/runs/${runId}`, {
-    headers: {
-      authorization: `Bearer ${sessionId}`,
-    },
+    headers: authHeaders(baseUrl, sessionId),
   });
 
 export const getProjectDetail = async (
@@ -512,9 +542,7 @@ export const getProjectDetail = async (
   projectId: ProjectId,
 ): Promise<ProjectDetail> =>
   await apiFetch<ProjectDetail>(baseUrl, `/api/private/projects/${projectId}`, {
-    headers: {
-      authorization: `Bearer ${sessionId}`,
-    },
+    headers: authHeaders(baseUrl, sessionId),
   });
 
 export const getProjectRuns = async (
@@ -523,9 +551,7 @@ export const getProjectRuns = async (
   projectId: ProjectId,
 ): Promise<GetProjectRunsResponse> =>
   await apiFetch<GetProjectRunsResponse>(baseUrl, `/api/private/projects/${projectId}/runs`, {
-    headers: {
-      authorization: `Bearer ${sessionId}`,
-    },
+    headers: authHeaders(baseUrl, sessionId),
   });
 
 export const waitForTerminalRun = async (baseUrl: string, sessionId: SessionId, runId: RunId): Promise<RunDetail> =>
@@ -577,7 +603,7 @@ export const printFailureContext = (context: IntegrationContext): void => {
   console.error(`Dev server stdout: ${context.stdoutLogPath}`);
   console.error(`Dev server stderr: ${context.stderrLogPath}`);
   console.error(
-    `Reopen preserved state: ANVIL_PERSIST_STATE_PATH=${context.tempDir} npm run dev -- --host 127.0.0.1 --port ${context.port}`,
+    `Reopen preserved state: CLOUDFLARE_ENV=${context.cloudflareEnv} ANVIL_PERSIST_STATE_PATH=${context.tempDir} npm run dev -- --host 127.0.0.1 --port ${context.port}`,
   );
 };
 

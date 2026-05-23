@@ -3,7 +3,6 @@ import { Check, Copy, ExternalLink, Webhook } from "lucide-react";
 import type { WebhookProvider } from "@/contracts";
 import { Badge, Button, Dialog, ErrorBanner, Input } from "@/client/components/ui";
 import { formatApiError, getApiClient } from "@/client/lib";
-import { useAuth } from "@/client/auth";
 import { useToast } from "@/client/toast";
 import { inferWebhookInstanceUrl, webhookProviderCatalog, webhookProviderCatalogList } from "@/lib/webhooks";
 import { getRecommendedProvider, getWebhookProviderIcon } from "@/client/components/webhooks/webhook-presentation";
@@ -25,7 +24,6 @@ export const AddWebhookDialog = ({
   configuredProviders,
   onCreated,
 }: AddWebhookDialogProps) => {
-  const { mode } = useAuth();
   const { pushToast } = useToast();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -92,7 +90,7 @@ export const AddWebhookDialog = ({
           ? { instanceUrl: trimmedInstanceUrl }
           : null;
 
-    void getApiClient(mode)
+    void getApiClient()
       .createWebhook(projectId, selectedProvider, {
         enabled: true,
         ...(config === undefined ? {} : { config }),

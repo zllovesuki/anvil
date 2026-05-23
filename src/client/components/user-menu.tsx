@@ -1,14 +1,10 @@
-import { LogOut, User, UserPlus } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { ConfirmDialog } from "@/client/components/ui/confirm-dialog";
 
-interface UserMenuProps {
-  onInvite?(): void;
-}
-
-export const UserMenu = ({ onInvite }: UserMenuProps) => {
+export const UserMenu = () => {
   const { user, isAuthenticated, isInitializing, signOut } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -43,7 +39,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
   }, [open]);
 
   if (!isAuthenticated || !user) {
-    if (["/", "/app/login", "/app/invite/accept"].includes(location.pathname)) return null;
+    if (["/", "/app/login"].includes(location.pathname)) return null;
 
     return (
       <div className="flex items-center gap-3">
@@ -52,7 +48,7 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
           to="/app/login"
           className="inline-flex items-center gap-2 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100"
         >
-          Sign In
+          Sign in
         </Link>
       </div>
     );
@@ -94,20 +90,6 @@ export const UserMenu = ({ onInvite }: UserMenuProps) => {
               <User className="h-4 w-4 text-zinc-500" />
               Profile & Settings
             </Link>
-            {onInvite ? (
-              <button
-                type="button"
-                role="menuitem"
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-800/70 hover:text-zinc-100"
-                onClick={() => {
-                  setOpen(false);
-                  onInvite();
-                }}
-              >
-                <UserPlus className="h-4 w-4 text-zinc-500" />
-                Invite User
-              </button>
-            ) : null}
             <button
               type="button"
               role="menuitem"

@@ -3,8 +3,6 @@ import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
 const TEST_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
-const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
-const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 const VITEST_POOL_COMPATIBILITY_FLAGS = [
   "enable_nodejs_tty_module",
   "enable_nodejs_fs_module",
@@ -31,8 +29,9 @@ export default defineConfig({
           APP_ENCRYPTION_KEYS_JSON: JSON.stringify({
             1: TEST_ENCRYPTION_KEY,
           }),
-          TURNSTILE_SITE_KEY: TURNSTILE_TEST_SITE_KEY,
-          TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET_KEY,
+          TESSERA_OIDC_ISSUER: "https://tessera.test",
+          TESSERA_OIDC_CLIENT_ID: "anvil-test",
+          TESSERA_OIDC_CLIENT_SECRET: "anvil-test-secret",
         },
       },
     }),

@@ -16,7 +16,7 @@ import { createD1Db } from "@/worker/db/d1";
 import * as d1Schema from "@/worker/db/d1/schema";
 import { generateDurableEntityId } from "@/worker/services";
 
-import { authHeaders, fetchJson, loginViaRoute, seedProject, seedUser } from "../../helpers/runtime";
+import { authHeaders, fetchJson, mintCookieAuth, seedProject, seedUser } from "../../helpers/runtime";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 
 const createProjectViaRoute = async (sessionId: string, projectSlug: string) =>
@@ -69,10 +69,7 @@ describe("worker run history and log ticket routes", () => {
       password: "swordfish",
     });
 
-    const login = await loginViaRoute(user);
-    expect(login.status).toBe(200);
-    expect(login.body).not.toBeNull();
-    const sessionId = login.body!.sessionId;
+    const { sessionId } = await mintCookieAuth(user.id);
 
     const createdProject = await createProjectViaRoute(sessionId, "run-branches-project");
     expect(createdProject.status).toBe(201);
@@ -107,10 +104,7 @@ describe("worker run history and log ticket routes", () => {
       password: "swordfish",
     });
 
-    const login = await loginViaRoute(user);
-    expect(login.status).toBe(200);
-    expect(login.body).not.toBeNull();
-    const sessionId = login.body!.sessionId;
+    const { sessionId } = await mintCookieAuth(user.id);
 
     const createdProject = await createProjectViaRoute(sessionId, "run-pagination-project");
     expect(createdProject.status).toBe(201);
@@ -186,10 +180,7 @@ describe("worker run history and log ticket routes", () => {
       password: "swordfish",
     });
 
-    const login = await loginViaRoute(user);
-    expect(login.status).toBe(200);
-    expect(login.body).not.toBeNull();
-    const sessionId = login.body!.sessionId;
+    const { sessionId } = await mintCookieAuth(user.id);
 
     const createdProject = await createProjectViaRoute(sessionId, "run-log-upgrade-project");
     expect(createdProject.status).toBe(201);
@@ -224,10 +215,7 @@ describe("worker run history and log ticket routes", () => {
       password: "swordfish",
     });
 
-    const login = await loginViaRoute(user);
-    expect(login.status).toBe(200);
-    expect(login.body).not.toBeNull();
-    const sessionId = login.body!.sessionId;
+    const { sessionId } = await mintCookieAuth(user.id);
 
     const createdProject = await createProjectViaRoute(sessionId, "run-log-ticket-errors-project");
     expect(createdProject.status).toBe(201);
@@ -335,9 +323,7 @@ describe("worker run history and log ticket routes", () => {
       projectSlug: "ws-envelope-project",
     });
 
-    const login = await loginViaRoute(user);
-    expect(login.status).toBe(200);
-    const sessionId = login.body!.sessionId;
+    const { sessionId } = await mintCookieAuth(user.id);
 
     const runId = RunId.assertDecode(generateDurableEntityId("run", Date.now()));
     const runStub = env.RUN_DO.getByName(runId);

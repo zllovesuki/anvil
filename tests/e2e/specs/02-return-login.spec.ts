@@ -1,23 +1,14 @@
 import { test, expect, loginViaUi } from "../fixtures/anvil-test";
 
 test.describe("Return login", () => {
-  test("logs in with existing operator credentials", async ({ livePage, operatorCredentials }) => {
-    await livePage.goto("/app/login");
+  test("logs in with the existing tessera identity", async ({ livePage, e2eContext, operatorIdentity }) => {
+    await loginViaUi(livePage, e2eContext, operatorIdentity);
 
-    // Overwrite whatever the current auth mode seeded into the form.
-    await livePage.getByLabel("Email").fill(operatorCredentials.email);
-    await livePage.getByLabel("Password", { exact: true }).fill(operatorCredentials.password);
-
-    const signInButton = livePage.getByRole("button", { name: "Sign In" });
-    await expect(signInButton).toBeEnabled({ timeout: 15_000 });
-    await signInButton.click();
-
-    await livePage.waitForURL("**/app/projects");
     await expect(livePage.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   });
 
-  test("session persists across page reload", async ({ livePage, operatorCredentials }) => {
-    await loginViaUi(livePage, operatorCredentials);
+  test("session persists across page reload", async ({ livePage, e2eContext, operatorIdentity }) => {
+    await loginViaUi(livePage, e2eContext, operatorIdentity);
 
     await livePage.reload({ waitUntil: "networkidle" });
 

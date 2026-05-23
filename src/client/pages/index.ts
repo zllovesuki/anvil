@@ -1,4 +1,3 @@
-export * from "@/client/pages/accept-invite-page";
 export * from "@/client/pages/create-project-page";
 export * from "@/client/pages/landing-page";
 export * from "@/client/pages/login-page";

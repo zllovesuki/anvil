@@ -8,6 +8,13 @@
       "when": 1774258046819,
       "tag": "0000_mysterious_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779480258870,
+      "tag": "0001_dazzling_toxin",
+      "breakpoints": true
     }
   ]
 }

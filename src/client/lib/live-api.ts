@@ -1,8 +1,5 @@
 import {
   CreateWebhookRequest,
-  AcceptInviteRequest,
-  CreateInviteRequest,
-  CreateInviteResponse,
   CreateProjectRequest,
   UpdateProjectRequest,
   GetMeResponse,
@@ -10,8 +7,6 @@ import {
   GetProjectRunsResponse,
   GetProjectsResponse,
   GetProjectWebhooksResponse,
-  LoginRequest,
-  LoginResponse,
   LogStreamTicketResponse,
   ProjectDetail,
   ProjectResponse,
@@ -34,22 +29,10 @@ export const createLiveApiClient = (): ApiClient => ({
     });
   },
 
-  login(payload) {
-    const body = LoginRequest.assertDecode(payload);
-
-    return request({
-      path: "/api/public/auth/login",
-      method: "POST",
-      body,
-      decode: (value) => LoginResponse.assertDecode(value),
-    });
-  },
-
   async logout() {
     await request({
       path: "/api/public/auth/logout",
       method: "POST",
-      includeAuth: true,
     });
   },
 
@@ -57,7 +40,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: "/api/private/me",
       method: "GET",
-      includeAuth: true,
       decode: (value) => GetMeResponse.assertDecode(value),
     });
   },
@@ -66,7 +48,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: "/api/private/projects",
       method: "GET",
-      includeAuth: true,
       decode: (value) => GetProjectsResponse.assertDecode(value),
     });
   },
@@ -78,7 +59,6 @@ export const createLiveApiClient = (): ApiClient => ({
       path: "/api/private/projects",
       method: "POST",
       body,
-      includeAuth: true,
       decode: (value) => ProjectResponse.assertDecode(value),
     });
   },
@@ -90,31 +70,7 @@ export const createLiveApiClient = (): ApiClient => ({
       path: `/api/private/projects/${encodeURIComponent(projectId)}`,
       method: "PATCH",
       body,
-      includeAuth: true,
       decode: (value) => ProjectResponse.assertDecode(value),
-    });
-  },
-
-  acceptInvite(payload) {
-    const body = AcceptInviteRequest.assertDecode(payload);
-
-    return request({
-      path: "/api/public/auth/invite/accept",
-      method: "POST",
-      body,
-      decode: (value) => LoginResponse.assertDecode(value),
-    });
-  },
-
-  createInvite(payload) {
-    const body = CreateInviteRequest.assertDecode(payload);
-
-    return request({
-      path: "/api/private/invites",
-      method: "POST",
-      body,
-      includeAuth: true,
-      decode: (value) => CreateInviteResponse.assertDecode(value),
     });
   },
 
@@ -122,7 +78,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/projects/${encodeURIComponent(projectId)}`,
       method: "GET",
-      includeAuth: true,
       decode: (value) => ProjectDetail.assertDecode(value),
     });
   },
@@ -136,7 +91,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/runs${qs ? `?${qs}` : ""}`,
       method: "GET",
-      includeAuth: true,
       decode: (value) => GetProjectRunsResponse.assertDecode(value),
     });
   },
@@ -148,7 +102,6 @@ export const createLiveApiClient = (): ApiClient => ({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/runs`,
       method: "POST",
       body,
-      includeAuth: true,
       decode: (value) => TriggerRunAcceptedResponse.assertDecode(value),
     });
   },
@@ -157,7 +110,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/runs/${encodeURIComponent(runId)}`,
       method: "GET",
-      includeAuth: true,
       decode: (value) => RunDetail.assertDecode(value),
     });
   },
@@ -166,7 +118,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/runs/${encodeURIComponent(runId)}/cancel`,
       method: "POST",
-      includeAuth: true,
       decode: (value) => RunDetail.assertDecode(value),
     });
   },
@@ -175,7 +126,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/runs/${encodeURIComponent(runId)}/log-ticket`,
       method: "POST",
-      includeAuth: true,
       decode: (value) => LogStreamTicketResponse.assertDecode(value),
     });
   },
@@ -184,7 +134,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/webhooks`,
       method: "GET",
-      includeAuth: true,
       decode: (value) => GetProjectWebhooksResponse.assertDecode(value),
     });
   },
@@ -196,7 +145,6 @@ export const createLiveApiClient = (): ApiClient => ({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/webhooks/${encodeURIComponent(provider)}`,
       method: "PUT",
       body,
-      includeAuth: true,
       decode: (value) => UpsertWebhookResponse.assertDecode(value),
     });
   },
@@ -208,7 +156,6 @@ export const createLiveApiClient = (): ApiClient => ({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/webhooks/${encodeURIComponent(provider)}`,
       method: "PUT",
       body,
-      includeAuth: true,
       decode: (value) => UpsertWebhookResponse.assertDecode(value),
     });
   },
@@ -217,7 +164,6 @@ export const createLiveApiClient = (): ApiClient => ({
     return request({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/webhooks/${encodeURIComponent(provider)}/rotate-secret`,
       method: "POST",
-      includeAuth: true,
       decode: (value) => RotateWebhookSecretResponse.assertDecode(value),
     });
   },
@@ -226,7 +172,6 @@ export const createLiveApiClient = (): ApiClient => ({
     await request({
       path: `/api/private/projects/${encodeURIComponent(projectId)}/webhooks/${encodeURIComponent(provider)}`,
       method: "DELETE",
-      includeAuth: true,
     });
   },
 });

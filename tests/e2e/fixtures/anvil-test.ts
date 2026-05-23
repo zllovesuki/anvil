@@ -1,25 +1,34 @@
 import { expect, test as base, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import {
+  E2E_BASELINE_EMAIL,
+  E2E_BASELINE_NAME,
+  E2E_BASELINE_SLUG,
+  E2E_BASELINE_TESSERA_SUB,
+  setMockOidcIdentity,
+  type MockIdentity,
+} from "../../helpers/oidc-mock";
 import type { E2eContext } from "../global-setup";
 
-export interface OperatorCredentials {
-  email: string;
+export interface OperatorIdentity extends MockIdentity {
   displayName: string;
   slug: string;
-  password: string;
 }
 
-const OPERATOR_CREDENTIALS: OperatorCredentials = {
-  email: "e2e-operator@example.com",
-  displayName: "E2E Operator",
-  slug: "e2e-operator",
-  password: "e2e-P@ssw0rd-stable",
+const OPERATOR_IDENTITY: OperatorIdentity = {
+  sub: E2E_BASELINE_TESSERA_SUB,
+  email: E2E_BASELINE_EMAIL,
+  email_verified: true,
+  name: E2E_BASELINE_NAME,
+  displayName: E2E_BASELINE_NAME,
+  slug: E2E_BASELINE_SLUG,
 };
-const TURNSTILE_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+export const LOGIN_URL_PATTERN = /\/app\/login(?:[?#]|$)/u;
 
 interface AnvilFixtures {
   e2eContext: E2eContext;
-  operatorCredentials: OperatorCredentials;
+  operatorIdentity: OperatorIdentity;
   livePage: Page;
 }
 
@@ -30,69 +39,26 @@ export const test = base.extend<AnvilFixtures>({
     use(JSON.parse(raw) as E2eContext);
   },
 
-  operatorCredentials: async ({}, use) => {
-    use(OPERATOR_CREDENTIALS);
+  operatorIdentity: async ({}, use) => {
+    use(OPERATOR_IDENTITY);
   },
 
-  // A page with localStorage forced to "live" auth mode before any navigation.
   livePage: async ({ page }, use) => {
-    await stubTurnstile(page);
-    await page.addInitScript(() => {
-      window.localStorage.setItem("anvil.auth.mode", "live");
-    });
     await use(page);
   },
 });
 
 export { expect };
 
-async function stubTurnstile(page: Page, token = "e2e-turnstile-token"): Promise<void> {
-  await page.route(TURNSTILE_SCRIPT_URL, async (route) => {
-    await route.fulfill({
-      contentType: "application/javascript",
-      body: `
-(() => {
-  const issuedToken = ${JSON.stringify(token)};
-  let counter = 0;
-  const widgets = new Map();
-
-  window.turnstile = {
-    render(container, options) {
-      const widgetId = \`widget-\${++counter}\`;
-      const host = document.createElement("div");
-      host.setAttribute("data-e2e-turnstile", options.action ?? "");
-      host.textContent = "E2E Turnstile";
-      container.replaceChildren(host);
-      widgets.set(widgetId, { container, options });
-      Promise.resolve().then(() => options.callback(issuedToken));
-      return widgetId;
-    },
-    reset(widgetId) {
-      const widget = widgets.get(widgetId);
-      if (widget) {
-        Promise.resolve().then(() => widget.options.callback(issuedToken));
-      }
-    },
-    remove(widgetId) {
-      const widget = widgets.get(widgetId);
-      if (widget) {
-        widget.container.replaceChildren();
-        widgets.delete(widgetId);
-      }
-    },
-  };
-})();
-      `,
-    });
-  });
-}
-
-export async function loginViaUi(page: Page, credentials: OperatorCredentials): Promise<void> {
+export async function loginViaUi(
+  page: Page,
+  e2eContext: E2eContext,
+  identity: OperatorIdentity = OPERATOR_IDENTITY,
+): Promise<void> {
+  await setMockOidcIdentity(e2eContext.oidcIssuer, identity);
   await page.goto("/app/login");
-  await page.getByLabel("Email").fill(credentials.email);
-  await page.getByLabel("Password", { exact: true }).fill(credentials.password);
-  const signInButton = page.getByRole("button", { name: "Sign In" });
+  const signInButton = page.getByRole("button", { name: "Sign in with tessera" });
   await expect(signInButton).toBeEnabled({ timeout: 15_000 });
   await signInButton.click();
-  await page.waitForURL("**/app/projects");
+  await page.waitForURL(/\/app\/projects(?:[?#]|$)/u);
 }

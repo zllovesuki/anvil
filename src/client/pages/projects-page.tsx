@@ -59,11 +59,11 @@ const ProjectCardSkeleton = () => (
 );
 
 export const ProjectsPage = () => {
-  const { mode, user } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id ?? "";
   const projectsQuery = useQuery({
-    queryKey: queryKeys.projects(mode, userId),
-    queryFn: () => getApiClient(mode).getProjects(),
+    queryKey: queryKeys.projects(userId),
+    queryFn: () => getApiClient().getProjects(),
     enabled: userId.length > 0,
   });
   const projects = projectsQuery.data?.projects ?? [];

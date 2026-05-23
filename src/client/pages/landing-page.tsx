@@ -1,4 +1,4 @@
-import { Lock } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useAuth } from "@/client/auth";
 import { StatusPill } from "@/client/components";
 import { Badge, ButtonLink } from "@/client/components/ui";
@@ -26,8 +26,7 @@ const workflow = [
   {
     step: "01",
     title: "Connect a repo",
-    description:
-      "Point anvil at a repository and choose the default branch. Access stays invite-only until you're ready to widen it.",
+    description: "Sign in through tessera, then point anvil at a repository and choose the default branch.",
   },
   {
     step: "02",
@@ -84,11 +83,8 @@ const LandingActions = ({ isAuthenticated }: { isAuthenticated: boolean }) =>
     </div>
   ) : (
     <div className="flex flex-wrap items-center gap-3">
-      <ButtonLink to="/app/invite/accept" variant="primary">
-        Accept Invite
-      </ButtonLink>
-      <ButtonLink to="/app/login" variant="secondary">
-        Sign In
+      <ButtonLink to="/app/login" variant="primary">
+        Sign in
       </ButtonLink>
     </div>
   );
@@ -265,24 +261,6 @@ export const LandingPage = () => {
                 <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">{item.description}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="border border-zinc-800/60 bg-zinc-900/40 p-8 sm:p-12">
-          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
-            <div className="max-w-xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent-500/20 bg-accent-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-accent-400">
-                <Lock className="h-3.5 w-3.5" />
-                invite-only access
-              </div>
-              <h2 className="font-display text-3xl font-bold tracking-tight text-zinc-100">Ready to execute?</h2>
-            </div>
-            <div className="shrink-0">
-              <LandingActions isAuthenticated={isAuthenticated} />
-            </div>
           </div>
         </div>
       </section>

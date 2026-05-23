@@ -1,8 +1,7 @@
-import { FlaskConical, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/client/auth";
-import { Badge, Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
+import { Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
 import { buildProjectSlug, formatApiError, getApiClient, inferRepositoryProvider } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
@@ -30,7 +29,6 @@ const initialFormState: ProjectFormState = {
 
 export const CreateProjectPage = () => {
   const navigate = useNavigate();
-  const { canSelectMode, mode } = useAuth();
   const { pushToast } = useToast();
   const [form, setForm] = useState<ProjectFormState>(initialFormState);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +46,6 @@ export const CreateProjectPage = () => {
       }
       return next;
     });
-  };
-
-  const loadExample = () => {
-    setForm({
-      name: "Edge Docs",
-      projectSlug: "edge-docs",
-      repoUrl: "https://github.com/rachel/edge-docs",
-      defaultBranch: "main",
-      configPath: ".anvil.yml",
-      repoToken: "",
-      dispatchMode: DEFAULT_DISPATCH_MODE,
-    });
-    setSlugTouched(true);
   };
 
   return (
@@ -83,7 +68,7 @@ export const CreateProjectPage = () => {
                 setSubmitting(true);
                 setError(null);
 
-                void getApiClient(mode)
+                void getApiClient()
                   .createProject({
                     name: form.name,
                     projectSlug: form.projectSlug,
@@ -233,24 +218,6 @@ export const CreateProjectPage = () => {
                 : "Runs use Cloudflare Workflows for durable execution with automatic retries."}
             </p>
           </Card>
-
-          {canSelectMode ? (
-            <Card className="p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Transport</p>
-              <div className="mt-2">
-                <Badge variant={mode === "live" ? "accent" : "default"}>{mode}</Badge>
-              </div>
-            </Card>
-          ) : null}
-
-          <Button
-            variant="secondary"
-            className="w-full"
-            icon={<FlaskConical className="h-4 w-4" />}
-            onClick={loadExample}
-          >
-            Load Example
-          </Button>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { type ProjectDetail, type ProjectResponse, type TriggerRunAcceptedResponse } from "@/contracts";
 
-import { authHeaders, fetchJson, loginViaRoute, seedUser } from "../../helpers/runtime";
+import { authHeaders, fetchJson, mintCookieAuth, seedUser } from "../../helpers/runtime";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 
 describe("worker routes", () => {
@@ -17,10 +17,7 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      expect(login.body).not.toBeNull();
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
         method: "POST",
@@ -105,15 +102,8 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const ownerLogin = await loginViaRoute(owner);
-      expect(ownerLogin.status).toBe(200);
-      expect(ownerLogin.body).not.toBeNull();
-      const ownerSessionId = ownerLogin.body!.sessionId;
-
-      const otherLogin = await loginViaRoute(otherUser);
-      expect(otherLogin.status).toBe(200);
-      expect(otherLogin.body).not.toBeNull();
-      const otherSessionId = otherLogin.body!.sessionId;
+      const { sessionId: ownerSessionId } = await mintCookieAuth(owner.id);
+      const { sessionId: otherSessionId } = await mintCookieAuth(otherUser.id);
 
       const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
         method: "POST",

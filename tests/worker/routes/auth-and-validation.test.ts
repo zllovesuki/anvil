@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { authHeaders, fetchJson, loginViaRoute, seedUser } from "../../helpers/runtime";
+import { authHeaders, fetchJson, mintCookieAuth, seedUser } from "../../helpers/runtime";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 
 describe("worker routes", () => {
@@ -11,9 +11,7 @@ describe("worker routes", () => {
       const result = await fetchJson("/api/public/app-config");
 
       expect(result.status).toBe(200);
-      expect(result.body).toEqual({
-        turnstileSiteKey: "1x00000000000000000000AA",
-      });
+      expect(result.body).toEqual({});
     });
 
     it("rejects private routes without a valid session", async () => {
@@ -22,7 +20,40 @@ describe("worker routes", () => {
       expect(result.status).toBe(403);
       expect(result.body).toMatchObject({
         error: {
-          code: "missing_authorization",
+          code: "missing_session",
+        },
+      });
+    });
+
+    it("rejects unsafe private routes without same-origin evidence", async () => {
+      const user = await seedUser({
+        email: "routes-missing-origin@example.com",
+        slug: "routes-missing-origin",
+        password: "swordfish",
+      });
+
+      const { sessionId } = await mintCookieAuth(user.id);
+      const headers = authHeaders(sessionId, {
+        "content-type": "application/json; charset=utf-8",
+      });
+      headers.delete("origin");
+
+      const createdProject = await fetchJson("/api/private/projects", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          projectSlug: "missing-origin",
+          name: "Missing Origin",
+          repoUrl: "https://github.com/example/missing-origin",
+          defaultBranch: "main",
+          configPath: ".anvil.yml",
+        }),
+      });
+
+      expect(createdProject.status).toBe(403);
+      expect(createdProject.body).toMatchObject({
+        error: {
+          code: "cross_origin_blocked",
         },
       });
     });
@@ -34,10 +65,7 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      expect(login.body).not.toBeNull();
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const createdProject = await fetchJson("/api/private/projects", {
         method: "POST",
@@ -77,10 +105,7 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      expect(login.body).not.toBeNull();
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const result = await fetchJson("/api/private/projects/not-a-project-id", {
         headers: authHeaders(sessionId),

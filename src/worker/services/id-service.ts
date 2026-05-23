@@ -1,3 +1,5 @@
+import { encodeBase64Url } from "@/worker/services/crypto";
+
 const BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const BASE62_WIDTH = 22;
 const BASE62_LOOKUP = new Map(BASE62_ALPHABET.split("").map((character, index) => [character, BigInt(index)]));
@@ -69,12 +71,7 @@ export const generateDurableEntityId = (prefix: DurableEntityPrefix, timestampMs
 
 export const generateOpaqueToken = (byteLength: number): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+  return encodeBase64Url(bytes);
 };
 
 export const hashSha256 = async (value: string): Promise<Uint8Array> => {

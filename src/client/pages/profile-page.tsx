@@ -1,32 +1,16 @@
-import { Calendar, KeyRound, Mail, User } from "lucide-react";
-import { useState } from "react";
+import { Calendar, Mail, User } from "lucide-react";
 import { useAuth } from "@/client/auth";
-import { Button, Card, ConfirmDialog, PageHeader } from "@/client/components/ui";
-import { type AuthMode, formatTimestamp } from "@/client/lib";
-const modeButtonClass = (active: boolean): string =>
-  [
-    "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-    active ? "bg-accent-500/15 text-accent-300" : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200",
-  ].join(" ");
-const ModeToggle = ({ currentMode, onChange }: { currentMode: AuthMode; onChange(mode: AuthMode): void }) => (
-  <div className="inline-flex rounded-xl border border-zinc-800/70 bg-zinc-900/80 p-1">
-    <button type="button" className={modeButtonClass(currentMode === "mock")} onClick={() => onChange("mock")}>
-      Mock API
-    </button>
-    <button type="button" className={modeButtonClass(currentMode === "live")} onClick={() => onChange("live")}>
-      Live API
-    </button>
-  </div>
-);
+import { Card, PageHeader } from "@/client/components/ui";
+import { formatTimestamp } from "@/client/lib";
+
 export const ProfilePage = () => {
-  const { user, canSelectMode, mode, setMode, signOut } = useAuth();
-  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const { user } = useAuth();
   if (!user) return null;
   return (
     <div className="animate-slide-up space-y-6">
       <PageHeader label="Account" title="Profile & Settings" />
 
-      <div className={["grid gap-5", canSelectMode ? "lg:grid-cols-2" : null].filter(Boolean).join(" ")}>
+      <div className="grid gap-5">
         {/* User info card */}
         <Card>
           <div className="flex items-start gap-4">
@@ -55,56 +39,7 @@ export const ProfilePage = () => {
               </div>
             </div>
           </dl>
-
-          <div className="mt-6">
-            <Button variant="danger" onClick={() => setConfirmSignOut(true)}>
-              Sign Out
-            </Button>
-            <ConfirmDialog
-              open={confirmSignOut}
-              onConfirm={() => {
-                setConfirmSignOut(false);
-                void signOut();
-              }}
-              onCancel={() => setConfirmSignOut(false)}
-              title="Sign out?"
-              description="Your local session will be cleared."
-              confirmLabel="Sign Out"
-              variant="danger"
-            />
-          </div>
         </Card>
-
-        {canSelectMode ? (
-          <Card>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-accent-500/10 p-2 text-accent-300">
-                <KeyRound className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-display text-lg font-semibold text-zinc-100">Developer Settings</h3>
-                <p className="mt-1 text-sm text-zinc-500">API transport and session configuration.</p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <p className="mb-2 text-sm font-medium text-zinc-300">API Transport</p>
-                <ModeToggle currentMode={mode} onChange={setMode} />
-                <p className="mt-3 text-xs leading-5 text-zinc-500">
-                  {mode === "mock"
-                    ? "Mock mode uses browser localStorage for persistence. No backend required."
-                    : "Live mode calls Worker routes directly with bearer session ID and D1 bookmark headers."}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/40 p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Active transport</p>
-                <p className="mt-1 text-sm font-medium text-zinc-200">{mode}</p>
-              </div>
-            </div>
-          </Card>
-        ) : null}
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 import { test, expect, loginViaUi } from "../fixtures/anvil-test";
 
 test.describe("Project CRUD", () => {
-  test("can create a project", async ({ livePage, operatorCredentials }) => {
-    await loginViaUi(livePage, operatorCredentials);
+  test("can create a project", async ({ livePage, e2eContext, operatorIdentity }) => {
+    await loginViaUi(livePage, e2eContext, operatorIdentity);
     await livePage.goto("/app/projects/new");
 
     await livePage.getByLabel("Project name").fill("CI Test Project");
@@ -20,8 +20,8 @@ test.describe("Project CRUD", () => {
     await expect(livePage.getByText("CI Test Project")).toBeVisible();
   });
 
-  test("can view project detail", async ({ livePage, operatorCredentials }) => {
-    await loginViaUi(livePage, operatorCredentials);
+  test("can view project detail", async ({ livePage, e2eContext, operatorIdentity }) => {
+    await loginViaUi(livePage, e2eContext, operatorIdentity);
     await livePage.goto("/app/projects");
 
     // Click the project card link — use role to avoid matching nested text nodes.
@@ -33,8 +33,8 @@ test.describe("Project CRUD", () => {
     await expect(livePage.getByRole("button", { name: "Trigger Run" })).toBeVisible();
   });
 
-  test("can edit project settings", async ({ livePage, operatorCredentials }) => {
-    await loginViaUi(livePage, operatorCredentials);
+  test("can edit project settings", async ({ livePage, e2eContext, operatorIdentity }) => {
+    await loginViaUi(livePage, e2eContext, operatorIdentity);
     await livePage.goto("/app/projects");
 
     await livePage.getByRole("link").filter({ hasText: "CI Test Project" }).first().click();

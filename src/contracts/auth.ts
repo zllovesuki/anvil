@@ -35,7 +35,6 @@ export type LoginResponse = TypeFromCodec<typeof LoginResponse>;
 export const GetMeResponse = eg.exactStrict(
   eg.object({
     user: UserSummary,
-    inviteTtlSeconds: InviteTtlSeconds,
   }),
 );
 export type GetMeResponse = TypeFromCodec<typeof GetMeResponse>;
@@ -52,11 +51,7 @@ export const AcceptInviteRequest = eg.exactStrict(
 );
 export type AcceptInviteRequest = TypeFromCodec<typeof AcceptInviteRequest>;
 
-export const PublicAppConfigResponse = eg.exactStrict(
-  eg.object({
-    turnstileSiteKey: eg.union([eg.string, eg.null]),
-  }),
-);
+export const PublicAppConfigResponse = eg.exactStrict(eg.object({}));
 export type PublicAppConfigResponse = TypeFromCodec<typeof PublicAppConfigResponse>;
 
 export const CreateInviteRequest = eg.exactStrict(

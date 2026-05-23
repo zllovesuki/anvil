@@ -2,10 +2,8 @@ import { FolderPlus, Hammer, Menu, Workflow, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "@/client/auth";
-import { ModeToggle } from "@/client/components/mode-toggle";
 
 import { UserMenu } from "@/client/components/user-menu";
-import type { AuthMode } from "@/client/lib/storage";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
   [
@@ -15,7 +13,6 @@ const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
 
 interface HeaderProps {
   variant?: "app" | "public";
-  onInvite?: () => void;
 }
 
 const HeaderBrand = ({ href, subtitle }: { href: string; subtitle: string }) => (
@@ -34,48 +31,20 @@ const HeaderBrand = ({ href, subtitle }: { href: string; subtitle: string }) => 
   </Link>
 );
 
-const PublicHeaderActions = ({
-  isAuthenticated,
-  showTransportToggle,
-  mode,
-  setMode,
-  onInvite,
-}: {
-  isAuthenticated: boolean;
-  showTransportToggle: boolean;
-  mode: AuthMode;
-  setMode: (mode: AuthMode) => void;
-  onInvite?: () => void;
-}) => (
-  <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-    {showTransportToggle ? (
-      <div className="flex items-center gap-2">
-        <span className="hidden text-[10px] uppercase tracking-[0.24em] text-zinc-600 lg:block">Local transport</span>
-        <ModeToggle currentMode={mode} onChange={setMode} />
-      </div>
-    ) : null}
-
-    {isAuthenticated ? <UserMenu onInvite={onInvite} /> : null}
-  </div>
+const PublicHeaderActions = ({ isAuthenticated }: { isAuthenticated: boolean }) => (
+  <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">{isAuthenticated ? <UserMenu /> : null}</div>
 );
 
-export const Header = ({ variant = "app", onInvite }: HeaderProps) => {
-  const { canSelectMode, isAuthenticated, mode, setMode } = useAuth();
+export const Header = ({ variant = "app" }: HeaderProps) => {
+  const { isAuthenticated } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const showTransportToggle = !isAuthenticated && canSelectMode;
 
   if (variant === "public") {
     return (
       <header className="sticky top-0 z-50 w-full border-b border-zinc-800/60 bg-zinc-900/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <HeaderBrand href="/" subtitle="Edge-native CI" />
-          <PublicHeaderActions
-            isAuthenticated={isAuthenticated}
-            mode={mode}
-            onInvite={onInvite}
-            setMode={setMode}
-            showTransportToggle={showTransportToggle}
-          />
+          <PublicHeaderActions isAuthenticated={isAuthenticated} />
         </div>
       </header>
     );
@@ -102,8 +71,7 @@ export const Header = ({ variant = "app", onInvite }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-3">
-          {showTransportToggle ? <ModeToggle currentMode={mode} onChange={setMode} /> : null}
-          <UserMenu onInvite={isAuthenticated ? onInvite : undefined} />
+          <UserMenu />
           {isAuthenticated ? (
             <button
               type="button"

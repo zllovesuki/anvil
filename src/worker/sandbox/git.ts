@@ -1,4 +1,7 @@
+import { encodeBase64 } from "@/worker/services/crypto";
+
 export const GIT_AUTH_HEADER_ENV = "ANVIL_GIT_AUTH_HEADER";
+const textEncoder = new TextEncoder();
 
 export interface GitCheckoutAuth {
   sessionEnv: Record<string, string | undefined>;
@@ -18,17 +21,8 @@ const parseCustomProviderUserInfo = (value: string): { username: string; passwor
   };
 };
 
-const encodeBase64 = (value: string): string => {
-  let binary = "";
-  for (const byte of new TextEncoder().encode(value)) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary);
-};
-
 const buildBasicAuthHeader = (username: string, password: string): string =>
-  `Authorization: Basic ${encodeBase64(`${username}:${password}`)}`;
+  `Authorization: Basic ${encodeBase64(textEncoder.encode(`${username}:${password}`))}`;
 
 export const buildGitCheckoutAuth = (repoUrl: string, token: string | null): GitCheckoutAuth => {
   if (!token) {

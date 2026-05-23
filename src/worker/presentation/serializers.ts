@@ -1,9 +1,7 @@
 import {
   BranchName,
   CommitSha,
-  type CreateInviteResponse,
   type LogEvent,
-  InviteId,
   OwnerSlug,
   type PendingRunSummary,
   type ProjectConfigSummary,
@@ -37,7 +35,7 @@ import {
   type RunMetaState,
   type RunStepState,
 } from "@/worker/contracts";
-import type { InviteRow, RunIndexRow, UserRow } from "@/worker/db/d1/repositories";
+import type { RunIndexRow, UserRow } from "@/worker/db/d1/repositories";
 import type { ParsedWebhookDeliveryRow, StoredProjectWebhook } from "@/worker/durable/project-do/webhooks/types";
 
 interface ProjectSummarySource {
@@ -66,13 +64,6 @@ export const serializeUserSummary = (user: UserRow): UserSummary => ({
   displayName: user.displayName,
   createdAt: isoDateTimeFromTimestamp(user.createdAt),
   disabledAt: toIso(user.disabledAt),
-});
-
-export const serializeInvite = (invite: InviteRow, token: string): CreateInviteResponse => ({
-  inviteId: expectTrusted(InviteId, invite.id, "InviteId"),
-  token,
-  expiresAt: isoDateTimeFromTimestamp(invite.expiresAt),
-  createdAt: isoDateTimeFromTimestamp(invite.createdAt),
 });
 
 export const serializeProjectSummary = (

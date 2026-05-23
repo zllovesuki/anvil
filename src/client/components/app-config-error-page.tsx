@@ -1,10 +1,7 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { useAuth } from "@/client/auth";
 import { Button } from "@/client/components/ui/button";
 
 export const AppConfigErrorPage = ({ message }: { message: string }) => {
-  const { canSelectMode } = useAuth();
-
   return (
     <section
       aria-labelledby="app-config-error-title"
@@ -23,11 +20,6 @@ export const AppConfigErrorPage = ({ message }: { message: string }) => {
         <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-200">APP_ENCRYPTION_KEYS_JSON</code>, then reload
         the app.
       </p>
-      {canSelectMode ? (
-        <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-          On localhost, you can switch to mock mode from the header while the live worker configuration is being fixed.
-        </p>
-      ) : null}
       <Button
         variant="secondary"
         className="mt-8 inline-flex items-center gap-2"

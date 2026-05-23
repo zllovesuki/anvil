@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, GitBranch, GitCommitHorizontal, Terminal, Timer, XCircle, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useAuth } from "@/client/auth";
 import { LoadingPanel, LogViewer, StatusPill, StepRow } from "@/client/components";
 import { Breadcrumbs, Button, Card, ConfirmDialog, ErrorBanner } from "@/client/components/ui";
 import { useLogStream } from "@/client/hooks";
@@ -16,7 +15,6 @@ import {
   getApiClient,
   mergeLogEventBySeq,
   queryKeys,
-  type AuthMode,
 } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
@@ -24,7 +22,6 @@ const TERMINAL_STATUSES = new Set(["passed", "failed", "canceled"]);
 
 interface RunDetailContentProps {
   detail: RunDetail;
-  mode: AuthMode;
   projectName: string | null;
   runId: string;
 }
@@ -34,21 +31,20 @@ const isTerminalStatus = (status: string): boolean => TERMINAL_STATUSES.has(stat
 const mergeLogs = (currentLogs: LogEvent[], incomingLogs: LogEvent[]): LogEvent[] =>
   incomingLogs.reduce((merged, event) => mergeLogEventBySeq(merged, event), currentLogs);
 
-const RunDetailContent = ({ detail, mode, projectName, runId }: RunDetailContentProps) => {
+const RunDetailContent = ({ detail, projectName, runId }: RunDetailContentProps) => {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [streamLogs, setStreamLogs] = useState<LogEvent[]>(() => detail.recentLogs);
   const { run, steps, currentStep, errorMessage, detailAvailable } = detail;
   const isTerminal = isTerminalStatus(run.status);
-  const isLive = mode === "live";
 
   const cancelRunMutation = useMutation({
-    mutationFn: () => getApiClient(mode).cancelRun(runId),
+    mutationFn: () => getApiClient().cancelRun(runId),
     onSuccess: (result) => {
-      queryClient.setQueryData(queryKeys.runDetail(mode, runId), result);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, result.run.projectId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(mode, result.run.projectId) });
+      queryClient.setQueryData(queryKeys.runDetail(runId), result);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(result.run.projectId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectRuns(result.run.projectId) });
       pushToast({ tone: "success", title: "Cancel requested", message: "Run cancellation has been requested." });
     },
     onError: (reason) => {
@@ -61,7 +57,7 @@ const RunDetailContent = ({ detail, mode, projectName, runId }: RunDetailContent
   };
 
   const handleStateUpdate = (message: RunWsStateMessage) => {
-    queryClient.setQueryData<RunDetail>(queryKeys.runDetail(mode, runId), (current) => {
+    queryClient.setQueryData<RunDetail>(queryKeys.runDetail(runId), (current) => {
       const source = current ?? detail;
       return {
         ...source,
@@ -80,13 +76,13 @@ const RunDetailContent = ({ detail, mode, projectName, runId }: RunDetailContent
     });
 
     if (isTerminalStatus(message.run.status)) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.runDetail(mode, runId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.runDetail(runId) });
     }
   };
 
   const logStreamStatus = useLogStream({
     runId,
-    enabled: !isTerminal && isLive,
+    enabled: !isTerminal,
     onEvent: handleLogEvent,
     onStateUpdate: handleStateUpdate,
   });
@@ -204,12 +200,11 @@ const RunDetailContent = ({ detail, mode, projectName, runId }: RunDetailContent
 
 export const RunDetailPage = () => {
   const { runId } = useParams<{ runId: string }>();
-  const { mode } = useAuth();
   const resolvedRunId = runId ?? "";
 
   const runQuery = useQuery({
-    queryKey: queryKeys.runDetail(mode, resolvedRunId),
-    queryFn: () => getApiClient(mode).getRunDetail(resolvedRunId),
+    queryKey: queryKeys.runDetail(resolvedRunId),
+    queryFn: () => getApiClient().getRunDetail(resolvedRunId),
     enabled: resolvedRunId.length > 0,
     refetchInterval: (query) => {
       const detail = query.state.data;
@@ -219,8 +214,8 @@ export const RunDetailPage = () => {
 
   const projectId = runQuery.data?.run.projectId ?? "";
   const projectNameQuery = useQuery({
-    queryKey: queryKeys.projectDetail(mode, projectId),
-    queryFn: () => getApiClient(mode).getProjectDetail(projectId),
+    queryKey: queryKeys.projectDetail(projectId),
+    queryFn: () => getApiClient().getProjectDetail(projectId),
     enabled: projectId.length > 0,
     staleTime: 60_000,
   });
@@ -260,9 +255,8 @@ export const RunDetailPage = () => {
     <>
       {runQuery.isError ? <ErrorBanner message={formatApiError(runQuery.error)} /> : null}
       <RunDetailContent
-        key={`${mode}:${runId}`}
+        key={runId}
         detail={runQuery.data}
-        mode={mode}
         projectName={projectNameQuery.data?.project.name ?? null}
         runId={runId}
       />

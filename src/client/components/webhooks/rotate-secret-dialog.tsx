@@ -4,7 +4,6 @@ import { RotateCw } from "lucide-react";
 import { ConfirmDialog } from "@/client/components/ui";
 import { SecretRevealDialog } from "@/client/components/webhooks/secret-reveal-dialog";
 import { formatApiError, getApiClient } from "@/client/lib";
-import { useAuth } from "@/client/auth";
 import { useToast } from "@/client/toast";
 import { webhookProviderCatalog } from "@/lib/webhooks";
 
@@ -17,7 +16,6 @@ interface RotateSecretDialogProps {
 }
 
 export const RotateSecretDialog = ({ open, onClose, webhook, webhookUrl, onRotated }: RotateSecretDialogProps) => {
-  const { mode } = useAuth();
   const { pushToast } = useToast();
   const [rotating, setRotating] = useState(false);
   const [newSecret, setNewSecret] = useState<string | null>(null);
@@ -27,7 +25,7 @@ export const RotateSecretDialog = ({ open, onClose, webhook, webhookUrl, onRotat
   const handleConfirm = () => {
     setRotating(true);
 
-    void getApiClient(mode)
+    void getApiClient()
       .rotateWebhookSecret(webhook.projectId, webhook.provider)
       .then((response) => {
         setNewSecret(response.secret);

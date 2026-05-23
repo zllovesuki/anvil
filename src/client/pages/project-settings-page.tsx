@@ -1,13 +1,18 @@
-import type { DispatchMode, ProjectConfigSummary, ProjectDetail, UpdateProjectRequest } from "@/contracts";
+import {
+  UpdateProjectRequest as UpdateProjectRequestCodec,
+  type DispatchMode,
+  type ProjectConfigSummary,
+  type ProjectDetail,
+  type UpdateProjectRequest,
+} from "@/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "@/client/auth";
 import { LoadingPanel } from "@/client/components";
-import { Badge, Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
-import { formatApiError, getApiClient, inferRepositoryProvider, queryKeys, type AuthMode } from "@/client/lib";
+import { Breadcrumbs, Button, ButtonLink, Card, ErrorBanner, Input, PageHeader } from "@/client/components/ui";
+import { formatApiError, getApiClient, inferRepositoryProvider, queryKeys } from "@/client/lib";
 import { useToast } from "@/client/toast";
 
 interface SettingsFormState {
@@ -20,8 +25,6 @@ interface SettingsFormState {
 }
 
 interface ProjectSettingsFormProps {
-  canSelectMode: boolean;
-  mode: AuthMode;
   project: ProjectConfigSummary;
   projectId: string;
 }
@@ -35,20 +38,20 @@ const buildInitialForm = (project: ProjectConfigSummary): SettingsFormState => (
   dispatchMode: project.dispatchMode,
 });
 
-const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: ProjectSettingsFormProps) => {
+const ProjectSettingsForm = ({ project, projectId }: ProjectSettingsFormProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const [form, setForm] = useState<SettingsFormState>(() => buildInitialForm(project));
 
   const updateProjectMutation = useMutation({
-    mutationFn: (payload: UpdateProjectRequest) => getApiClient(mode).updateProject(projectId, payload),
+    mutationFn: (payload: UpdateProjectRequest) => getApiClient().updateProject(projectId, payload),
     onSuccess: (response) => {
-      queryClient.setQueryData<ProjectDetail>(queryKeys.projectDetail(mode, projectId), (current) =>
+      queryClient.setQueryData<ProjectDetail>(queryKeys.projectDetail(projectId), (current) =>
         current ? { ...current, project: response.project } : current,
       );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(mode, projectId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot(mode) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projectsRoot() });
 
       pushToast({
         tone: "success",
@@ -73,7 +76,7 @@ const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: Projec
 
     updateProjectMutation.reset();
 
-    const payload: UpdateProjectRequest = {};
+    const payload: Record<string, unknown> = {};
     if (form.name !== project.name) payload.name = form.name;
     if (form.repoUrl !== project.repoUrl) payload.repoUrl = form.repoUrl;
     if (form.defaultBranch !== project.defaultBranch) payload.defaultBranch = form.defaultBranch;
@@ -86,7 +89,7 @@ const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: Projec
       return;
     }
 
-    updateProjectMutation.mutate(payload);
+    updateProjectMutation.mutate(UpdateProjectRequestCodec.assertDecode(payload));
   };
 
   const submitError = updateProjectMutation.isError ? formatApiError(updateProjectMutation.error) : null;
@@ -224,15 +227,6 @@ const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: Projec
                 : "Runs use Cloudflare Workflows for durable execution with automatic retries."}
             </p>
           </Card>
-
-          {canSelectMode ? (
-            <Card className="p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Transport</p>
-              <div className="mt-2">
-                <Badge variant={mode === "live" ? "accent" : "default"}>{mode}</Badge>
-              </div>
-            </Card>
-          ) : null}
         </div>
       </div>
     </div>
@@ -241,12 +235,11 @@ const ProjectSettingsForm = ({ canSelectMode, mode, project, projectId }: Projec
 
 export const ProjectSettingsPage = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const { canSelectMode, mode } = useAuth();
   const resolvedProjectId = projectId ?? "";
 
   const detailQuery = useQuery({
-    queryKey: queryKeys.projectDetail(mode, resolvedProjectId),
-    queryFn: () => getApiClient(mode).getProjectDetail(resolvedProjectId),
+    queryKey: queryKeys.projectDetail(resolvedProjectId),
+    queryFn: () => getApiClient().getProjectDetail(resolvedProjectId),
     enabled: resolvedProjectId.length > 0,
   });
 
@@ -274,9 +267,7 @@ export const ProjectSettingsPage = () => {
 
   return (
     <ProjectSettingsForm
-      key={`${mode}:${projectId}:${detailQuery.data.project.updatedAt}`}
-      canSelectMode={canSelectMode}
-      mode={mode}
+      key={`${projectId}:${detailQuery.data.project.updatedAt}`}
       project={detailQuery.data.project}
       projectId={projectId}
     />

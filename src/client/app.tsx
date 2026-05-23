@@ -1,17 +1,12 @@
 import { lazy } from "react";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { AppShell } from "@/client/components/app-shell";
 import { LoadingPanel } from "@/client/components/loading-panel";
+import { LandingPage } from "@/client/pages/landing-page";
 
-const AcceptInvitePage = lazy(() =>
-  import("@/client/pages/accept-invite-page").then(({ AcceptInvitePage }) => ({ default: AcceptInvitePage })),
-);
 const CreateProjectPage = lazy(() =>
   import("@/client/pages/create-project-page").then(({ CreateProjectPage }) => ({ default: CreateProjectPage })),
-);
-const LandingPage = lazy(() =>
-  import("@/client/pages/landing-page").then(({ LandingPage }) => ({ default: LandingPage })),
 );
 const LoginPage = lazy(() => import("@/client/pages/login-page").then(({ LoginPage }) => ({ default: LoginPage })));
 const NotFoundPage = lazy(() =>
@@ -35,12 +30,18 @@ const RunDetailPage = lazy(() =>
 
 const ProtectedRoute = () => {
   const { isAuthenticated, isInitializing } = useAuth();
+  const location = useLocation();
 
   if (isInitializing) {
     return <LoadingPanel label="Verifying session..." />;
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/app/login" replace />;
+  if (isAuthenticated) {
+    return <Outlet />;
+  }
+
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  return <Navigate to={`/app/login?return_to=${encodeURIComponent(returnTo)}`} replace />;
 };
 
 export const App = () => (
@@ -48,7 +49,6 @@ export const App = () => (
     <Route element={<AppShell />}>
       <Route path="/" element={<LandingPage />} />
       <Route path="/app/login" element={<LoginPage />} />
-      <Route path="/app/invite/accept" element={<AcceptInvitePage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/app/projects" element={<ProjectsPage />} />
         <Route path="/app/projects/new" element={<CreateProjectPage />} />

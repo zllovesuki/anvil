@@ -1,16 +1,14 @@
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/client/auth";
 import { AppConfigErrorPage } from "@/client/components/app-config-error-page";
 import { ErrorBoundary } from "@/client/components/error-boundary";
 import { Header } from "@/client/components/header";
 import { Footer } from "@/client/components/footer";
-import { InviteDialog } from "@/client/components/invite-dialog";
 import { LoadingPanel } from "@/client/components/loading-panel";
 import { useRouteAnnouncer } from "@/client/hooks/use-route-announcer";
 
 export const AppShell = () => {
-  const [inviteOpen, setInviteOpen] = useState(false);
   const { pathname } = useLocation();
   const { startupError } = useAuth();
   const isLandingRoute = pathname === "/";
@@ -24,7 +22,7 @@ export const AppShell = () => {
       >
         Skip to content
       </a>
-      <Header variant={isLandingRoute ? "public" : "app"} onInvite={() => setInviteOpen(true)} />
+      <Header variant={isLandingRoute ? "public" : "app"} />
       <main id="main-content" className={`flex-1 sm:overflow-y-auto${isLandingRoute ? " overflow-x-clip" : ""}`}>
         <div className={isLandingRoute ? undefined : "mx-auto max-w-7xl px-4 py-6 sm:px-6"}>
           <ErrorBoundary>
@@ -39,7 +37,6 @@ export const AppShell = () => {
         </div>
       </main>
       <Footer />
-      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <div ref={announcerRef} className="sr-only" aria-live="polite" />
     </div>
   );

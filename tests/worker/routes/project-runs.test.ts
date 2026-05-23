@@ -17,7 +17,7 @@ import { createD1Db } from "@/worker/db/d1";
 import * as d1Schema from "@/worker/db/d1/schema";
 
 import { acceptManualRunWithoutAlarm } from "../../helpers/project-do";
-import { authHeaders, fetchJson, loginViaRoute, seedUser } from "../../helpers/runtime";
+import { authHeaders, fetchJson, mintCookieAuth, seedUser } from "../../helpers/runtime";
 import { registerWorkerRuntimeHooks } from "../../helpers/worker-hooks";
 
 describe("worker routes", () => {
@@ -31,17 +31,13 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      expect(login.body).not.toBeNull();
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const me = await fetchJson<GetMeResponse>("/api/private/me", {
         headers: authHeaders(sessionId),
       });
       expect(me.status).toBe(200);
       expect(me.body?.user.id).toBe(user.id);
-      expect(me.body?.inviteTtlSeconds).toBe(Number(env.INVITE_TTL_SECONDS));
 
       const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
         method: "POST",
@@ -147,10 +143,7 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      expect(login.body).not.toBeNull();
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
         method: "POST",
@@ -202,9 +195,7 @@ describe("worker routes", () => {
         password: "swordfish",
       });
 
-      const login = await loginViaRoute(user);
-      expect(login.status).toBe(200);
-      const sessionId = login.body!.sessionId;
+      const { sessionId } = await mintCookieAuth(user.id);
 
       const createdProject = await fetchJson<ProjectResponse>("/api/private/projects", {
         method: "POST",

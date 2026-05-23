@@ -1,5 +1,5 @@
 import { ApiError } from "@/client/lib/api-contract";
-import { canUseMockAuthMode, getStoredBookmark, getStoredSessionId, setStoredBookmark } from "@/client/lib/storage";
+import { getStoredBookmark, setStoredBookmark } from "@/client/lib/storage";
 
 export const D1_BOOKMARK_HEADER = "x-anvil-d1-bookmark";
 export const SESSION_EXPIRED_EVENT = "anvil:session-expired";
@@ -16,7 +16,6 @@ export interface RequestOptions<T> {
   path: string;
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
-  includeAuth?: boolean;
   decode?: (value: unknown) => T;
 }
 
@@ -37,13 +36,7 @@ const parseErrorResponse = async (response: Response): Promise<ApiError> => {
   );
 };
 
-export const request = async <T>({
-  path,
-  method,
-  body,
-  includeAuth = false,
-  decode,
-}: RequestOptions<T>): Promise<T> => {
+export const request = async <T>({ path, method, body, decode }: RequestOptions<T>): Promise<T> => {
   const headers = new Headers({
     accept: "application/json",
   });
@@ -57,15 +50,6 @@ export const request = async <T>({
     headers.set("content-type", "application/json; charset=utf-8");
   }
 
-  if (includeAuth) {
-    const sessionId = getStoredSessionId();
-    if (!sessionId) {
-      throw new ApiError(403, "invalid_session", "Session is missing or expired.");
-    }
-
-    headers.set("authorization", `Bearer ${sessionId}`);
-  }
-
   let response: Response;
 
   try {
@@ -73,18 +57,10 @@ export const request = async <T>({
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: "same-origin",
     });
   } catch (error) {
-    const canSuggestMockMode = typeof window !== "undefined" && canUseMockAuthMode(window.location.hostname ?? null);
-
-    throw new ApiError(
-      503,
-      "network_error",
-      canSuggestMockMode
-        ? "Request failed. If the backend is not ready, switch to mock mode."
-        : "Request failed. The backend may not be ready yet.",
-      error,
-    );
+    throw new ApiError(503, "network_error", "Request failed. The backend may not be ready yet.", error);
   }
 
   const nextBookmark = response.headers.get(D1_BOOKMARK_HEADER);
